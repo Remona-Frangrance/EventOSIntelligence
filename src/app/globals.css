@@ -1,0 +1,324 @@
+@import url("https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700;800&family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&family=Cinzel:wght@500;600;700;800&family=Playfair+Display:ital,wght@0,600;0,700;1,600&display=swap");
+@import "tailwindcss";
+
+@theme {
+  --font-display: "Space Grotesk", sans-serif;
+  --font-sans: "Inter", sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+  --font-serif-luxury: "Cinzel", serif;
+  --font-editorial: "Playfair Display", serif;
+  --color-void: #05070f;
+  --color-panel: #0b0f1d;
+  --color-lime-neon: #c8f31d;
+  --color-violet-neon: #8b5cf6;
+  --color-cyan-neon: #22d3ee;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: var(--font-sans);
+  background: #05070f;
+  color: #ffffff;
+  overflow-x: hidden;
+  selection-background-color: #c8f31d;
+  selection-color: #000000;
+}
+
+.font-display {
+  font-family: var(--font-display);
+}
+.font-mono {
+  font-family: var(--font-mono);
+}
+.font-luxury {
+  font-family: var(--font-serif-luxury);
+}
+.font-editorial {
+  font-family: var(--font-editorial);
+}
+
+/* Background Grids & Noise */
+.grid-bg {
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.04) 1px, transparent 1px);
+  background-size: 48px 48px;
+}
+
+.dot-bg {
+  background-image: radial-gradient(rgba(255, 255, 255, 0.08) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+.aurora-bg {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: 
+    radial-gradient(ellipse 60% 40% at 50% -10%, rgba(139, 92, 246, 0.22), transparent 70%),
+    radial-gradient(ellipse 50% 30% at 85% 20%, rgba(200, 243, 29, 0.12), transparent 60%),
+    radial-gradient(ellipse 45% 35% at 15% 40%, rgba(34, 211, 238, 0.14), transparent 60%);
+  filter: blur(40px);
+}
+
+.noise::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.45;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.05'/%3E%3C/svg%3E");
+}
+
+/* Glassmorphism Styles */
+.glass {
+  background: rgba(255, 255, 255, 0.035);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.glass-card {
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0.01) 100%);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 20px 50px rgba(0, 0, 0, 0.4);
+}
+
+.glass-card:hover {
+  border-color: rgba(255, 255, 255, 0.22);
+}
+
+.glass-strong {
+  background: rgba(11, 15, 29, 0.88);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.glass-glow-lime {
+  box-shadow: 0 0 35px -8px rgba(200, 243, 29, 0.35);
+}
+
+.glass-glow-cyan {
+  box-shadow: 0 0 35px -8px rgba(34, 211, 238, 0.35);
+}
+
+.glass-glow-violet {
+  box-shadow: 0 0 35px -8px rgba(139, 92, 246, 0.35);
+}
+
+/* Animated Border Glow */
+.conic-border {
+  position: relative;
+  z-index: 1;
+}
+.conic-border::before {
+  content: "";
+  position: absolute;
+  inset: -1.5px;
+  border-radius: inherit;
+  padding: 1.5px;
+  background: conic-gradient(from 0deg, #c8f31d, #8b5cf6, #22d3ee, #c8f31d);
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  animation: rotate-conic 4s linear infinite;
+  pointer-events: none;
+}
+
+@keyframes rotate-conic {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Shimmer Animation */
+@keyframes shimmer {
+  0% { transform: translateX(-150%); }
+  50%, 100% { transform: translateX(150%); }
+}
+
+.shimmer-sweep {
+  position: relative;
+  overflow: hidden;
+}
+.shimmer-sweep::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 60%;
+  height: 100%;
+  background: linear-gradient(
+    90deg,
+    transparent,
+    rgba(255, 255, 255, 0.22),
+    transparent
+  );
+  transform: skewX(-20deg) translateX(-200%);
+  animation: shimmer-effect 3.5s infinite;
+  pointer-events: none;
+}
+
+@keyframes shimmer-effect {
+  0% { transform: skewX(-20deg) translateX(-200%); }
+  35%, 100% { transform: skewX(-20deg) translateX(300%); }
+}
+
+/* Floating Animations */
+@keyframes float-gentle {
+  0%, 100% { transform: translateY(0px) rotate(0deg); }
+  50% { transform: translateY(-10px) rotate(0.5deg); }
+}
+
+@keyframes float-reverse {
+  0%, 100% { transform: translateY(0px) rotate(0deg); }
+  50% { transform: translateY(12px) rotate(-0.5deg); }
+}
+
+.animate-float {
+  animation: float-gentle 6s ease-in-out infinite;
+}
+
+.animate-float-reverse {
+  animation: float-reverse 7s ease-in-out infinite;
+}
+
+/* Pulse & Blinking */
+@keyframes pulse-slow {
+  0%, 100% { opacity: 0.3; transform: scale(0.98); }
+  50% { opacity: 0.8; transform: scale(1.02); }
+}
+.animate-pulse-slow {
+  animation: pulse-slow 5s ease-in-out infinite;
+}
+
+@keyframes blink-dot {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.2; transform: scale(0.85); }
+}
+.animate-blink {
+  animation: blink-dot 1.5s ease-in-out infinite;
+}
+
+/* Marquee */
+@keyframes marquee {
+  0% { transform: translateX(0%); }
+  100% { transform: translateX(-50%); }
+}
+.animate-marquee {
+  display: flex;
+  width: max-content;
+  animation: marquee 32s linear infinite;
+}
+.animate-marquee:hover {
+  animation-play-state: paused;
+}
+
+/* Laser Scanline for Badges & QR */
+@keyframes scanline-move {
+  0% { top: 0%; opacity: 0.8; }
+  50% { opacity: 1; }
+  100% { top: 100%; opacity: 0.8; }
+}
+
+.scanline-beam {
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, #c8f31d, transparent);
+  box-shadow: 0 0 16px #c8f31d;
+  animation: scanline-move 2.5s ease-in-out infinite alternate;
+}
+
+/* Certificate Styles & Guilloche Patterns */
+.cert-classic {
+  background: radial-gradient(circle at 50% 50%, #ffffff 0%, #f9f6ef 60%, #eee6d0 100%);
+  color: #1a1e28;
+}
+
+.cert-cyber {
+  background: radial-gradient(circle at 50% 40%, #0d1224 0%, #060913 80%, #020308 100%);
+  color: #ffffff;
+}
+
+.cert-gold {
+  background: radial-gradient(circle at 50% 30%, #151821 0%, #0d0f17 70%, #06070a 100%);
+  color: #fce7b2;
+}
+
+.cert-hologram {
+  background: linear-gradient(135deg, #0f172a 0%, #1e1b4b 50%, #0f172a 100%);
+  color: #ffffff;
+}
+
+.guilloche-border {
+  background-image: 
+    repeating-linear-gradient(45deg, rgba(200, 160, 80, 0.12) 0, rgba(200, 160, 80, 0.12) 1px, transparent 0, transparent 8px),
+    repeating-linear-gradient(-45deg, rgba(200, 160, 80, 0.12) 0, rgba(200, 160, 80, 0.12) 1px, transparent 0, transparent 8px);
+}
+
+.gold-foil {
+  background: linear-gradient(135deg, #c59f4e 0%, #fef3c7 30%, #b48a3c 50%, #fef3c7 70%, #9a7228 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.silver-foil {
+  background: linear-gradient(135deg, #94a3b8 0%, #f8fafc 40%, #64748b 70%, #f8fafc 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.bronze-foil {
+  background: linear-gradient(135deg, #b45309 0%, #fed7aa 40%, #78350f 70%, #fed7aa 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+::-webkit-scrollbar-track {
+  background: #05070f;
+}
+::-webkit-scrollbar-thumb {
+  background: #1e293b;
+  border-radius: 9999px;
+  border: 2px solid #05070f;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #334155;
+}
+
+/* Printing format specifically for A4 Certificates */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  body {
+    background: white !important;
+    color: black !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+  .print-cert {
+    position: fixed;
+    inset: 0;
+    width: 100vw !important;
+    height: 100vh !important;
+    max-width: 100% !important;
+    max-height: 100% !important;
+    margin: 0 !important;
+    box-shadow: none !important;
+    border: none !important;
+    page-break-inside: avoid;
+  }
+}
