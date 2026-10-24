@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { Suspense, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useAuth, UserRole } from "@/context/AuthContext";
+import Logo from "@/components/Logo";
 import {
   ShieldCheck,
   Zap,
@@ -15,413 +16,321 @@ import {
   Mail,
   KeyRound,
   CheckCircle2,
-  Users,
-  Award,
+  AlertCircle,
+  Loader2,
 } from "lucide-react";
 
-export default function LoginPage() {
+function LoginForm() {
   const router = useRouter();
-  const { login, loginJudge, quickLogin } = useAuth();
+  const searchParams = useSearchParams();
+  const initialRole = (searchParams.get("role") as UserRole) || "admin";
 
-  const [activeTab, setActiveTab] = useState<UserRole>("admin");
+  const { login, loginJudge } = useAuth();
+
+  const [activeTab, setActiveTab] = useState<UserRole>(initialRole);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [judgeCode, setJudgeCode] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-
-  const demoAccounts = {
-    admin: [
-      {
-        name: "Alex Vance",
-        title: "Chief Organizer & Platform Admin",
-        email: "admin@nexathon.com",
-        password: "admin123",
-        badge: "Full Control",
-        dest: "/console",
-      },
-    ],
-    participant: [
-      {
-        name: "Aarav Mehta",
-        title: "Team PulseCoders · MediQueue AI (HealthTech)",
-        email: "pulse@nexathon.com",
-        password: "part123",
-        badge: "Booth B-1",
-        dest: "/participant",
-      },
-      {
-        name: "Kavya Iyer",
-        title: "Team NeuralNest · SignBridge (AI/ML)",
-        email: "neural@nexathon.com",
-        password: "part123",
-        badge: "Booth B-2",
-        dest: "/participant",
-      },
-    ],
-    judge: [
-      {
-        name: "Dr. Anjali Rao",
-        title: "Judge 1 of 4 · ex-Google AI · AI/ML",
-        email: "anjali@nexathon.com",
-        password: "judge123",
-        code: "JUDGE-A1B2",
-        badge: "AI/ML Track",
-        dest: "/judge",
-      },
-      {
-        name: "Suresh Menon",
-        title: "Judge 2 of 4 · Sequoia Scout · FinTech",
-        email: "suresh@nexathon.com",
-        password: "judge123",
-        code: "JUDGE-C3D4",
-        badge: "FinTech Track",
-        dest: "/judge",
-      },
-      {
-        name: "Fatima Khan",
-        title: "Judge 3 of 4 · Bosch IoT Architecture Lead",
-        email: "fatima@nexathon.com",
-        password: "judge123",
-        code: "JUDGE-E5F6",
-        badge: "IoT Track",
-        dest: "/judge",
-      },
-      {
-        name: "Dr. Vikram Iyer",
-        title: "Judge 4 of 4 · Apollo Hospitals HealthTech Director",
-        email: "vikram@nexathon.com",
-        password: "judge123",
-        code: "JUDGE-G7H8",
-        badge: "HealthTech Track",
-        dest: "/judge",
-      },
-    ],
-    visitor: [
-      {
-        name: "Devansh Patel",
-        title: "Attendee & Angel Scout · Interests: AI, HealthTech",
-        email: "visitor@nexathon.com",
-        password: "visitor123",
-        badge: "Interests Profile",
-        dest: "/visitor",
-      },
-    ],
-  };
+  const [emailNotice, setEmailNotice] = useState("");
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
+    setEmailNotice("");
     setLoading(true);
 
     try {
       if (activeTab === "judge" && judgeCode.trim()) {
         const res = await loginJudge(judgeCode.trim());
         if (res.success) {
-          router.push("/judge");
+          setEmailNotice("Judge authenticated successfully. Redirecting to evaluation pad…");
+          setTimeout(() => {
+            router.push("/judge");
+          }, 600);
           return;
         } else {
-          setError(res.error || "Invalid judge code");
+          setError(res.error || "Invalid judge access code.");
           setLoading(false);
           return;
         }
       }
 
       if (!email.trim() || !password.trim()) {
-        setError("Please enter your email and password");
+        setError("Please enter your email and password.");
         setLoading(false);
         return;
       }
 
       const res = await login(email.trim(), password.trim());
       if (res.success) {
-        if (activeTab === "admin") router.push("/console");
-        else if (activeTab === "participant") router.push("/participant");
-        else if (activeTab === "judge") router.push("/judge");
-        else router.push("/visitor");
+        setEmailNotice(`Sign-in verified. Dispatching to workspace…`);
+        setTimeout(() => {
+          if (activeTab === "admin") router.push("/console");
+          else if (activeTab === "participant") router.push("/participant");
+          else if (activeTab === "judge") router.push("/judge");
+          else router.push("/visitor");
+        }, 600);
       } else {
-        setError(res.error || "Invalid login credentials");
+        setError(res.error || "Invalid credentials. Please verify your email and password.");
+        setLoading(false);
       }
-    } catch (err) {
-      setError("An unexpected error occurred");
-    } finally {
+    } catch {
+      setError("An unexpected network error occurred. Please try again.");
       setLoading(false);
     }
   }
 
-  async function handleQuickLogin(account: { email: string; password: string; dest: string }) {
-    setError("");
-    setLoading(true);
-    setEmail(account.email);
-    setPassword(account.password);
-    const ok = await quickLogin(account.email, account.password);
-    setLoading(false);
-    if (ok) {
-      router.push(account.dest);
-    } else {
-      setError("Failed to auto-sign in");
-    }
-  }
-
   return (
-    <main className="relative min-h-screen px-4 pb-24 pt-28">
-      {/* Background glow effects */}
-      <div className="pointer-events-none absolute left-1/2 top-16 h-[400px] w-[700px] -translate-x-1/2 rounded-full bg-violet-600/15 blur-[140px]" />
-      <div className="pointer-events-none absolute right-10 top-40 h-[350px] w-[500px] rounded-full bg-[#c8f31d]/10 blur-[130px]" />
+    <main className="relative min-h-screen px-4 pb-20 pt-28 flex flex-col justify-center">
+      {/* Subtle background glow */}
+      <div className="pointer-events-none absolute left-1/2 top-20 h-[360px] w-[640px] -translate-x-1/2 rounded-full bg-indigo-500/5 blur-[120px]" />
 
-      <div className="mx-auto max-w-4xl">
-        {/* Header */}
+      <div className="mx-auto w-full max-w-2xl">
+        {/* Brand & Heading */}
         <div className="text-center">
-          <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 font-mono text-[11px] uppercase tracking-[0.2em] text-[#c8f31d]">
-            <Sparkles className="h-3 w-3" /> Universal Authentication
+          <div className="flex justify-center mb-4">
+            <Logo size="lg" />
           </div>
-          <h1 className="font-display mt-3 text-4xl font-extrabold tracking-tight md:text-5xl">
-            Choose Your Platform <span className="text-[#c8f31d]">Role</span>
+
+          <div className="inline-flex items-center gap-2 rounded-full border border-indigo-200/70 bg-indigo-50/70 px-3.5 py-1 text-xs font-medium text-indigo-700">
+            <Sparkles className="h-3.5 w-3.5" />
+            <span>Universal Role Gateway</span>
+          </div>
+
+          <h1 className="mt-3 text-3xl font-semibold tracking-tight text-slate-900 md:text-4xl">
+            Sign in to your event workspace
           </h1>
-          <p className="mx-auto mt-2 max-w-xl text-sm text-white/60">
-            Sign in as Organizer (Admin), Participant (manage project & links), Judge (evaluate all projects), or Visitor (interest matching feed).
+          <p className="mx-auto mt-2 max-w-md text-sm text-slate-600">
+            Select your platform role below and enter your credentials.
           </p>
         </div>
 
-        {/* Role Tabs */}
-        <div className="mt-8 grid grid-cols-2 gap-2 sm:grid-cols-4">
-          <button
-            type="button"
-            onClick={() => {
-              setActiveTab("admin");
-              setError("");
-            }}
-            className={`flex items-center justify-center gap-2.5 rounded-2xl border p-4 text-left transition ${
-              activeTab === "admin"
-                ? "border-[#c8f31d] bg-[#c8f31d]/10 text-white shadow-[0_0_25px_rgba(200,243,29,0.2)]"
-                : "border-white/10 bg-white/[0.03] text-white/60 hover:border-white/20 hover:text-white"
-            }`}
-          >
-            <ShieldCheck className={`h-5 w-5 ${activeTab === "admin" ? "text-[#c8f31d]" : "text-white/40"}`} />
-            <div>
-              <div className="text-xs font-bold uppercase tracking-wider">Admin</div>
-              <div className="text-[10px] text-white/40">Full Management</div>
-            </div>
-          </button>
+        {/* Role Selector Tabs */}
+        <div className="mt-8">
+          <div className="text-xs font-semibold uppercase tracking-wider text-slate-500 mb-2 px-1">
+            Select role to sign in
+          </div>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTab("admin");
+                setError("");
+              }}
+              className={`flex flex-col items-center justify-center gap-1.5 rounded-xl border p-3 text-center transition ${
+                activeTab === "admin"
+                  ? "border-indigo-600 bg-indigo-50/80 text-indigo-950 font-semibold shadow-sm"
+                  : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-900"
+              }`}
+            >
+              <ShieldCheck className={`h-4 w-4 ${activeTab === "admin" ? "text-indigo-600" : "text-slate-400"}`} />
+              <div>
+                <div className="text-xs font-semibold">Organizer</div>
+                <div className="text-[10px] text-slate-500">Admin Console</div>
+              </div>
+            </button>
 
-          <button
-            type="button"
-            onClick={() => {
-              setActiveTab("participant");
-              setError("");
-            }}
-            className={`flex items-center justify-center gap-2.5 rounded-2xl border p-4 text-left transition ${
-              activeTab === "participant"
-                ? "border-cyan-400 bg-cyan-400/10 text-white shadow-[0_0_25px_rgba(34,211,238,0.2)]"
-                : "border-white/10 bg-white/[0.03] text-white/60 hover:border-white/20 hover:text-white"
-            }`}
-          >
-            <Zap className={`h-5 w-5 ${activeTab === "participant" ? "text-cyan-400" : "text-white/40"}`} />
-            <div>
-              <div className="text-xs font-bold uppercase tracking-wider">Participant</div>
-              <div className="text-[10px] text-white/40">Projects & Links</div>
-            </div>
-          </button>
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTab("participant");
+                setError("");
+              }}
+              className={`flex flex-col items-center justify-center gap-1.5 rounded-xl border p-3 text-center transition ${
+                activeTab === "participant"
+                  ? "border-indigo-600 bg-indigo-50/80 text-indigo-950 font-semibold shadow-sm"
+                  : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-900"
+              }`}
+            >
+              <Zap className={`h-4 w-4 ${activeTab === "participant" ? "text-indigo-600" : "text-slate-400"}`} />
+              <div>
+                <div className="text-xs font-semibold">Participant</div>
+                <div className="text-[10px] text-slate-500">Team Space</div>
+              </div>
+            </button>
 
-          <button
-            type="button"
-            onClick={() => {
-              setActiveTab("judge");
-              setError("");
-            }}
-            className={`flex items-center justify-center gap-2.5 rounded-2xl border p-4 text-left transition ${
-              activeTab === "judge"
-                ? "border-amber-400 bg-amber-400/10 text-white shadow-[0_0_25px_rgba(251,191,36,0.2)]"
-                : "border-white/10 bg-white/[0.03] text-white/60 hover:border-white/20 hover:text-white"
-            }`}
-          >
-            <Gavel className={`h-5 w-5 ${activeTab === "judge" ? "text-amber-400" : "text-white/40"}`} />
-            <div>
-              <div className="text-xs font-bold uppercase tracking-wider">Judges (4)</div>
-              <div className="text-[10px] text-white/40">Rate All Projects</div>
-            </div>
-          </button>
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTab("judge");
+                setError("");
+              }}
+              className={`flex flex-col items-center justify-center gap-1.5 rounded-xl border p-3 text-center transition ${
+                activeTab === "judge"
+                  ? "border-indigo-600 bg-indigo-50/80 text-indigo-950 font-semibold shadow-sm"
+                  : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-900"
+              }`}
+            >
+              <Gavel className={`h-4 w-4 ${activeTab === "judge" ? "text-indigo-600" : "text-slate-400"}`} />
+              <div>
+                <div className="text-xs font-semibold">Jury Judge</div>
+                <div className="text-[10px] text-slate-500">Rubric Pad</div>
+              </div>
+            </button>
 
-          <button
-            type="button"
-            onClick={() => {
-              setActiveTab("visitor");
-              setError("");
-            }}
-            className={`flex items-center justify-center gap-2.5 rounded-2xl border p-4 text-left transition ${
-              activeTab === "visitor"
-                ? "border-fuchsia-400 bg-fuchsia-400/10 text-white shadow-[0_0_25px_rgba(232,121,249,0.2)]"
-                : "border-white/10 bg-white/[0.03] text-white/60 hover:border-white/20 hover:text-white"
-            }`}
-          >
-            <Compass className={`h-5 w-5 ${activeTab === "visitor" ? "text-fuchsia-400" : "text-white/40"}`} />
-            <div>
-              <div className="text-xs font-bold uppercase tracking-wider">Visitor</div>
-              <div className="text-[10px] text-white/40">Interests & Upvote</div>
-            </div>
-          </button>
+            <button
+              type="button"
+              onClick={() => {
+                setActiveTab("visitor");
+                setError("");
+              }}
+              className={`flex flex-col items-center justify-center gap-1.5 rounded-xl border p-3 text-center transition ${
+                activeTab === "visitor"
+                  ? "border-indigo-600 bg-indigo-50/80 text-indigo-950 font-semibold shadow-sm"
+                  : "border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:text-slate-900"
+              }`}
+            >
+              <Compass className={`h-4 w-4 ${activeTab === "visitor" ? "text-indigo-600" : "text-slate-400"}`} />
+              <div>
+                <div className="text-xs font-semibold">Visitor</div>
+                <div className="text-[10px] text-slate-500">Discovery Pass</div>
+              </div>
+            </button>
+          </div>
         </div>
 
-        {/* Main Card with 2 columns: Quick 1-Click Login vs Manual Login */}
-        <div className="mt-8 grid grid-cols-1 gap-6 lg:grid-cols-12">
-          {/* Column 1: 1-Click Fast Test Buttons */}
-          <div className="lg:col-span-7">
-            <div className="glass-strong rounded-3xl border border-white/10 p-6 md:p-8">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="font-display text-lg font-bold">1-Click Quick Demo Sign In</h3>
-                  <p className="text-xs text-white/50">Instant testing without typing credentials</p>
-                </div>
-                <span className="font-mono rounded-lg bg-white/10 px-2 py-0.5 text-[10px] uppercase tracking-wider text-[#c8f31d]">
-                  Ready to test
-                </span>
-              </div>
-
-              <div className="mt-5 space-y-3">
-                {demoAccounts[activeTab].map((acc, idx) => (
-                  <button
-                    key={idx}
-                    type="button"
-                    onClick={() => handleQuickLogin(acc)}
-                    disabled={loading}
-                    className="group flex w-full items-center justify-between rounded-2xl border border-white/10 bg-white/[0.04] p-4 text-left transition hover:border-[#c8f31d]/50 hover:bg-white/[0.08]"
-                  >
-                    <div className="flex items-center gap-3.5">
-                      <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-white/10 font-bold text-white group-hover:bg-[#c8f31d] group-hover:text-black transition">
-                        {idx + 1}
-                      </div>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-bold text-white group-hover:text-[#c8f31d] transition">
-                            {acc.name}
-                          </span>
-                          <span className="rounded-md bg-white/10 px-2 py-0.5 text-[10px] font-mono text-white/70">
-                            {acc.badge}
-                          </span>
-                        </div>
-                        <div className="text-xs text-white/50">{acc.title}</div>
-                        <div className="mt-0.5 font-mono text-[10px] text-white/35">
-                          {acc.email} · {acc.password}
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-1 font-mono text-xs text-white/40 group-hover:translate-x-1 group-hover:text-[#c8f31d] transition">
-                      <span>Log in</span>
-                      <ArrowRight className="h-3.5 w-3.5" />
-                    </div>
-                  </button>
-                ))}
-              </div>
-
-              <div className="mt-6 rounded-2xl border border-white/5 bg-black/40 p-4">
-                <div className="flex items-center gap-2 text-xs font-semibold text-white/70">
-                  <CheckCircle2 className="h-4 w-4 text-[#c8f31d]" />
-                  <span>Role Workflow Guarantee</span>
-                </div>
-                <p className="mt-1 text-[11px] leading-relaxed text-white/45">
-                  {activeTab === "admin" && "The Admin manages all 3 events, approves/rejects projects, onboards judges, configures scoring, and views real-time telemetry."}
-                  {activeTab === "participant" && "Participants log in to their private portal to edit project title, description, team, upload banner images, and set live demo & GitHub repo URLs."}
-                  {activeTab === "judge" && "All 4 judges log in with their assigned accounts or passcodes to independently score each project across 4 criteria. Scores sync live."}
-                  {activeTab === "visitor" && "Visitors select their personal interests (e.g. AI/ML, HealthTech, FinTech) and receive an intelligent personalized project discovery feed."}
-                </p>
-              </div>
+        {/* Credentials Card */}
+        <div className="mt-4 rounded-2xl border border-slate-200/90 bg-white p-6 shadow-sm">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+            <div>
+              <h3 className="text-base font-semibold text-slate-900 capitalize">
+                {activeTab} Authentication
+              </h3>
+              <p className="text-xs text-slate-500">Enter your credentials to access the workspace</p>
             </div>
+            <span className="rounded-md bg-slate-100 px-2.5 py-1 text-[11px] font-medium text-slate-700 capitalize">
+              {activeTab} Portal
+            </span>
           </div>
 
-          {/* Column 2: Standard Login Form */}
-          <div className="lg:col-span-5">
-            <div className="glass-strong rounded-3xl border border-white/10 p-6 md:p-8">
-              <h3 className="font-display text-lg font-bold">Sign In With Credentials</h3>
-              <p className="text-xs text-white/50">Enter your account details or judge code</p>
+          {error && (
+            <div className="mt-4 flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 p-3 text-xs text-rose-700">
+              <AlertCircle className="h-4 w-4 shrink-0" />
+              <span>{error}</span>
+            </div>
+          )}
 
-              {error && (
-                <div className="mt-4 rounded-xl border border-rose-500/30 bg-rose-500/10 p-3 text-xs text-rose-300">
-                  {error}
+          {emailNotice && (
+            <div className="mt-4 flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-700">
+              <CheckCircle2 className="h-4 w-4 shrink-0" />
+              <span>{emailNotice}</span>
+            </div>
+          )}
+
+          <form onSubmit={handleSubmit} className="mt-5 space-y-4">
+            {activeTab === "judge" && (
+              <div>
+                <label className="block text-xs font-medium text-slate-700 mb-1">
+                  Judge Passcode (Quick Entry)
+                </label>
+                <div className="relative">
+                  <KeyRound className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="text"
+                    placeholder="e.g. JUDGE-A1B2"
+                    value={judgeCode}
+                    onChange={(e) => setJudgeCode(e.target.value.toUpperCase())}
+                    className="w-full rounded-xl border border-slate-200 bg-slate-50/50 py-2.5 pl-10 pr-4 font-mono text-xs uppercase tracking-wider text-slate-900 outline-none focus:border-indigo-600 focus:bg-white focus:ring-2 focus:ring-indigo-100 transition"
+                  />
                 </div>
-              )}
-
-              <form onSubmit={handleSubmit} className="mt-5 space-y-4">
-                {activeTab === "judge" && (
-                  <div>
-                    <label className="block text-xs font-semibold uppercase tracking-wider text-white/60">
-                      Judge Passcode (Optional)
-                    </label>
-                    <div className="relative mt-1">
-                      <KeyRound className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-white/40" />
-                      <input
-                        type="text"
-                        placeholder="e.g. JUDGE-A1B2"
-                        value={judgeCode}
-                        onChange={(e) => setJudgeCode(e.target.value.toUpperCase())}
-                        className="w-full rounded-xl border border-white/15 bg-black/50 py-2.5 pl-10 pr-4 font-mono text-xs uppercase tracking-wider text-white outline-none focus:border-amber-400"
-                      />
-                    </div>
-                    <div className="mt-1 text-[10px] text-white/40">Or use email & password below</div>
-                  </div>
-                )}
-
-                <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-white/60">
-                    Email Address
-                  </label>
-                  <div className="relative mt-1">
-                    <Mail className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-white/40" />
-                    <input
-                      type="email"
-                      required={!judgeCode}
-                      placeholder={activeTab === "admin" ? "admin@nexathon.com" : "you@example.com"}
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      className="w-full rounded-xl border border-white/15 bg-black/50 py-2.5 pl-10 pr-4 text-xs text-white outline-none focus:border-[#c8f31d]"
-                    />
-                  </div>
+                <div className="mt-1 text-[11px] text-slate-500">
+                  Or enter your registered jury email and password below
                 </div>
+              </div>
+            )}
 
-                <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-white/60">
-                    Password
-                  </label>
-                  <div className="relative mt-1">
-                    <Lock className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-white/40" />
-                    <input
-                      type="password"
-                      required={!judgeCode}
-                      placeholder="••••••••"
-                      value={password}
-                      onChange={(e) => setPassword(e.target.value)}
-                      className="w-full rounded-xl border border-white/15 bg-black/50 py-2.5 pl-10 pr-4 text-xs text-white outline-none focus:border-[#c8f31d]"
-                    />
-                  </div>
-                </div>
-
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="mt-6 flex w-full items-center justify-center gap-2 rounded-xl bg-[#c8f31d] py-3 text-xs font-extrabold uppercase tracking-wider text-black transition hover:bg-white disabled:opacity-50"
-                >
-                  {loading ? (
-                    <span>Authenticating…</span>
-                  ) : (
-                    <>
-                      <span>Enter {activeTab.toUpperCase()} Portal</span>
-                      <ArrowRight className="h-4 w-4" />
-                    </>
-                  )}
-                </button>
-              </form>
-
-              <div className="mt-6 border-t border-white/10 pt-4 text-center">
-                <p className="text-xs text-white/50">
-                  Don't have an account yet?{" "}
-                  <Link href="/register" className="font-bold text-[#c8f31d] hover:underline">
-                    Register as Participant or Visitor →
-                  </Link>
-                </p>
+            <div>
+              <label className="block text-xs font-medium text-slate-700 mb-1">
+                Email Address
+              </label>
+              <div className="relative">
+                <Mail className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="email"
+                  required={!judgeCode}
+                  placeholder={
+                    activeTab === "admin"
+                      ? "admin@nexathon.com"
+                      : activeTab === "participant"
+                      ? "pulse@nexathon.com"
+                      : activeTab === "judge"
+                      ? "anjali@nexathon.com"
+                      : "visitor@nexathon.com"
+                  }
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50/50 py-2.5 pl-10 pr-4 text-xs text-slate-900 outline-none focus:border-indigo-600 focus:bg-white focus:ring-2 focus:ring-indigo-100 transition"
+                />
               </div>
             </div>
+
+            <div>
+              <label className="block text-xs font-medium text-slate-700 mb-1">
+                Password
+              </label>
+              <div className="relative">
+                <Lock className="absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+                <input
+                  type="password"
+                  required={!judgeCode}
+                  placeholder="••••••••"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50/50 py-2.5 pl-10 pr-4 text-xs text-slate-900 outline-none focus:border-indigo-600 focus:bg-white focus:ring-2 focus:ring-indigo-100 transition"
+                />
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-slate-200/80 bg-slate-50/60 p-3 text-[11px] text-slate-600 flex items-center gap-2">
+              <Mail className="h-3.5 w-3.5 text-indigo-600 shrink-0" />
+              <span>Sign-in confirmation alerts are automatically dispatched to your registered address.</span>
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white py-3 text-xs font-semibold shadow-sm transition disabled:opacity-50"
+            >
+              {loading ? (
+                <>
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span>Authenticating…</span>
+                </>
+              ) : (
+                <>
+                  <span className="capitalize">Enter {activeTab} Portal</span>
+                  <ArrowRight className="h-4 w-4" />
+                </>
+              )}
+            </button>
+          </form>
+
+          <div className="mt-6 border-t border-slate-100 pt-4 text-center">
+            <p className="text-xs text-slate-500">
+              Need a new attendee or team account?{" "}
+              <Link href="/register" className="font-semibold text-indigo-600 hover:text-indigo-700 underline">
+                Register here →
+              </Link>
+            </p>
           </div>
         </div>
       </div>
     </main>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-slate-900 flex items-center justify-center text-slate-400 text-sm">
+          Loading authentication portal…
+        </div>
+      }
+    >
+      <LoginForm />
+    </Suspense>
   );
 }

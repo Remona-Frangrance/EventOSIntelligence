@@ -13,14 +13,20 @@ export default function FeedbackPage() {
   const [sent, setSent] = useState(false);
 
   async function load() {
-    const [f, s, e] = await Promise.all([
-      fetch(`/api/feedback?eventId=${eventId}`).then((r) => r.json()),
-      fetch(`/api/ai/summary/${eventId}`).then((r) => r.json()),
-      fetch(`/api/events/${eventId}`).then((r) => r.json()),
-    ]);
-    setList(f);
-    setSummary(s);
-    setEv(e);
+    try {
+      const [f, s, e] = await Promise.all([
+        fetch(`/api/feedback?eventId=${eventId}`).then((r) => r.json()).catch(() => []),
+        fetch(`/api/ai/summary/${eventId}`).then((r) => r.json()).catch(() => null),
+        fetch(`/api/events/${eventId}`).then((r) => r.json()).catch(() => null),
+      ]);
+      setList(Array.isArray(f) ? f : []);
+      if (s && !s.error && Array.isArray(s.keywords) && s.count > 0) {
+        setSummary(s);
+      } else {
+        setSummary(null);
+      }
+      if (e && !e.error) setEv(e);
+    } catch {}
   }
   useEffect(() => { load(); }, [eventId]);
 
@@ -80,7 +86,7 @@ export default function FeedbackPage() {
               {sent ? "Received — thank you! ✦" : "Post to the wall →"}
             </button>
           </form>
-          {summary && (
+          {summary && Array.isArray(summary.keywords) && summary.keywords.length > 0 && (
             <div className="glass rounded-3xl p-6">
               <div className="flex items-center gap-2">
                 <Sparkles className="h-4 w-4 text-fuchsia-300" />

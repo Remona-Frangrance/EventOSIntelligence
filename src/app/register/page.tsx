@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useAuth, UserRole } from "@/context/AuthContext";
 import QrCode from "@/components/QrCode";
 import ImageUploader from "@/components/ImageUploader";
+import VideoUploader from "@/components/VideoUploader";
 import {
   CheckCircle2,
   Plus,
@@ -22,6 +23,7 @@ import {
   Code2,
   Tag,
   ShieldCheck,
+  Loader2,
 } from "lucide-react";
 
 const AVAILABLE_INTERESTS = [
@@ -54,6 +56,7 @@ export default function RegisterPage() {
   const [teamName, setTeamName] = useState("");
   const [projectDescription, setProjectDescription] = useState("");
   const [imageUrl, setImageUrl] = useState("");
+  const [videoUrl, setVideoUrl] = useState("");
   const [demoUrl, setDemoUrl] = useState("");
   const [repoUrl, setRepoUrl] = useState("");
   const [techStack, setTechStack] = useState("");
@@ -66,6 +69,7 @@ export default function RegisterPage() {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [doneData, setDoneData] = useState<any | null>(null);
+  const [statusMessage, setStatusMessage] = useState("");
 
   // Events list for selection
   const [events, setEvents] = useState<any[]>([]);
@@ -109,7 +113,43 @@ export default function RegisterPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
+
+    if (role === "participant" && !videoUrl.trim()) {
+      setError("Project demo / pitch video is required. Please upload a video file or provide a video URL.");
+      return;
+    }
+
     setSaving(true);
+    setStatusMessage("Preparing registration data…");
+
+    let processedVideoUrl = videoUrl.trim();
+    if (processedVideoUrl.startsWith("data:video/") && processedVideoUrl.includes(";base64,")) {
+      setStatusMessage("Uploading and storing video file…");
+      try {
+        const matches = processedVideoUrl.match(/^data:video\/([a-zA-Z0-9]+);base64,(.+)$/);
+        if (matches) {
+          const ext = matches[1] || "mp4";
+          const byteCharacters = atob(matches[2]);
+          const byteNumbers = new Array(byteCharacters.length);
+          for (let i = 0; i < byteCharacters.length; i++) {
+            byteNumbers[i] = byteCharacters.charCodeAt(i);
+          }
+          const byteArray = new Uint8Array(byteNumbers);
+          const blob = new Blob([byteArray], { type: `video/${ext}` });
+          const fd = new FormData();
+          fd.append("file", blob, `pitch-video.${ext}`);
+          const upRes = await fetch("/api/upload", { method: "POST", body: fd });
+          const upData = await upRes.json();
+          if (upData.url) {
+            processedVideoUrl = upData.url;
+          }
+        }
+      } catch (err) {
+        console.warn("Client video offload failed, proceeding with direct payload:", err);
+      }
+    }
+
+    setStatusMessage("Creating your account & assigning booth…");
 
     const payload = {
       eventId: selectedEventId,
@@ -125,6 +165,7 @@ export default function RegisterPage() {
             teamName,
             projectDescription,
             imageUrl: imageUrl || "https://images.unsplash.com/photo-1518770660439-4636190af475?w=800&auto=format&fit=crop&q=80",
+            videoUrl: processedVideoUrl,
             demoUrl,
             repoUrl,
             techStack: techStack.split(",").map((s) => s.trim()).filter(Boolean),
@@ -139,7 +180,11 @@ export default function RegisterPage() {
     setSaving(false);
 
     if (res.success) {
+      setStatusMessage("Registration successful! Welcome aboard.");
       setDoneData(payload);
+      setTimeout(() => {
+        router.push(role === "participant" ? "/participant" : "/visitor");
+      }, 1600);
     } else {
       setError(res.error || "Registration failed. Try again.");
     }
@@ -147,7 +192,7 @@ export default function RegisterPage() {
 
   if (doneData) {
     return (
-      <main className="relative min-h-screen px-4 pb-24 pt-32 text-center text-white">
+      <main className="relative min-h-screen bg-[#05070f] text-white px-4 pb-24 pt-32 text-center">
         <div className="mx-auto max-w-lg glass-strong rounded-3xl border border-white/10 p-8 shadow-2xl">
           <div className="mx-auto grid h-16 w-16 place-items-center rounded-2xl bg-[#c8f31d] text-black shadow-[0_0_30px_rgba(200,243,29,0.5)]">
             <CheckCircle2 className="h-8 w-8" />
@@ -198,7 +243,7 @@ export default function RegisterPage() {
   }
 
   return (
-    <main className="relative min-h-screen px-4 pb-28 pt-28">
+    <main className="relative min-h-screen bg-[#05070f] text-white px-4 pb-28 pt-28">
       {/* Background glow */}
       <div className="pointer-events-none absolute left-1/2 top-16 h-[400px] w-[700px] -translate-x-1/2 rounded-full bg-violet-600/15 blur-[140px]" />
 
@@ -425,6 +470,13 @@ export default function RegisterPage() {
                     value={imageUrl}
                     onChange={setImageUrl}
                     label="Project Banner / Screenshot Image (Upload File or URL)"
+                  />
+
+                  <VideoUploader
+                    value={videoUrl}
+                    onChange={setVideoUrl}
+                    required={true}
+                    label="Project Demo / Pitch Video (Upload Video or Video URL) *"
                   />
 
                   <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">

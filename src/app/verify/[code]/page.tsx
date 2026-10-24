@@ -30,31 +30,54 @@ export default function VerifyPage() {
     signatory1?: string;
     signatory2?: string;
     theme?: string;
+    isTamperProof?: boolean;
+    isValidSignature?: boolean;
+    verificationHash?: string;
+    isLocked?: boolean;
+    eventStatus?: string;
   } | null>(null);
   const [evName, setEvName] = useState("");
   const [missing, setMissing] = useState(false);
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      if (!cancelled) {
+        setMissing(true);
+      }
+    }, 4500);
+
     (async () => {
       try {
-        const r = await fetch(`/api/certificates?code=${code}`);
+        const r = await fetch(`/api/certificates?code=${encodeURIComponent(code || "")}`);
         if (!r.ok) {
-          setMissing(true);
+          if (!cancelled) setMissing(true);
           return;
         }
         const d = await r.json();
-        setCert(d);
-        try {
-          const ev = await fetch(`/api/events/${d.eventId}`).then((x) => x.json());
-          setEvName(ev.name || "National Tech Exposition & Awards");
-        } catch {
-          setEvName("National Tech Exposition & Awards");
+        if (!d || d.error || !d.recipientName) {
+          if (!cancelled) setMissing(true);
+          return;
+        }
+        if (!cancelled) {
+          setCert(d);
+          try {
+            const ev = await fetch(`/api/events/${d.eventId}`).then((x) => x.json());
+            setEvName(ev?.name || "National Tech Exposition & Awards");
+          } catch {
+            setEvName("National Tech Exposition & Awards");
+          }
         }
       } catch {
-        setMissing(true);
+        if (!cancelled) setMissing(true);
       }
     })();
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
   }, [code]);
 
   function copyUrl() {
@@ -100,6 +123,39 @@ export default function VerifyPage() {
     );
   }
 
+  if (cert.isLocked) {
+    return (
+      <main className="relative min-h-screen bg-[#05070f] px-4 pb-24 pt-32 text-center text-white">
+        <div className="pointer-events-none absolute left-1/2 top-16 h-80 w-[450px] -translate-x-1/2 rounded-full bg-amber-500/10 blur-[120px]" />
+        <div className="relative mx-auto max-w-md rounded-3xl border border-amber-500/30 bg-slate-900/90 p-8 shadow-2xl backdrop-blur-xl">
+          <div className="mx-auto grid h-16 w-16 place-items-center rounded-2xl bg-amber-400 text-slate-950 shadow-[0_0_30px_rgba(251,191,36,0.4)]">
+            <Lock className="h-8 w-8" />
+          </div>
+          <span className="mt-4 inline-block rounded-full bg-amber-400/20 px-3 py-1 font-mono text-[10px] font-bold uppercase tracking-widest text-amber-300">
+            Certificate Locked · Event In Progress
+          </span>
+          <h2 className="font-display mt-3 text-2xl font-black text-white">
+            Ceremony In Progress
+          </h2>
+          <p className="mt-2 text-xs text-slate-300 leading-relaxed">
+            This certificate for <b className="text-white">{cert.recipientName}</b> is registered in the secure vault, but remains locked while <b>{evName || "the event"}</b> is actively running.
+          </p>
+          <div className="mt-4 rounded-xl border border-amber-500/20 bg-amber-500/10 p-3 text-[11px] text-amber-200 text-left">
+            🔒 <b>How to unlock:</b> The event organizer must officially conclude the event ceremony from the Admin Console. Once ended, this credential unlocks automatically with full cryptographic tamper-proof verification.
+          </div>
+          <div className="mt-6 flex flex-col gap-2">
+            <Link
+              href="/"
+              className="rounded-xl bg-white px-5 py-3 text-xs font-bold text-slate-950 hover:bg-slate-200 transition"
+            >
+              Return to Platform Home
+            </Link>
+          </div>
+        </div>
+      </main>
+    );
+  }
+
   const isGold = cert.theme === "gold" || cert.role === "winner";
 
   return (
@@ -117,10 +173,17 @@ export default function VerifyPage() {
             <span>Back to Studio</span>
           </Link>
 
-          <div className="flex items-center gap-2 rounded-full border border-emerald-400/30 bg-emerald-400/10 px-4 py-1.5 text-xs font-semibold text-emerald-300 shadow-[0_0_20px_rgba(52,211,153,0.15)]">
-            <BadgeCheck className="h-4 w-4" />
-            <span>Official Authenticated Credential · Cryptographically Verified</span>
-          </div>
+          {cert.isValidSignature === false ? (
+            <div className="flex items-center gap-2 rounded-full border border-rose-500/40 bg-rose-500/10 px-4 py-1.5 text-xs font-semibold text-rose-300 shadow-[0_0_20px_rgba(244,63,94,0.2)]">
+              <XCircle className="h-4 w-4" />
+              <span>Warning: Signature Mismatch · Credential May Be Tampered</span>
+            </div>
+          ) : (
+            <div className="flex items-center gap-2 rounded-full border border-emerald-400/30 bg-emerald-400/10 px-4 py-1.5 text-xs font-semibold text-emerald-300 shadow-[0_0_20px_rgba(52,211,153,0.15)]">
+              <BadgeCheck className="h-4 w-4" />
+              <span>Official Authenticated Credential · HMAC-SHA256 Cryptographically Verified</span>
+            </div>
+          )}
         </div>
 
         {/* Certificate Rendering Container */}

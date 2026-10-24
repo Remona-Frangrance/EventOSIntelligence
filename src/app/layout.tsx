@@ -1,27 +1,37 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import Navbar from "@/components/Navbar";
-import ThreeDBackground from "@/components/ThreeDBackground";
 import { AuthProvider } from "@/context/AuthContext";
+import { LanguageProvider } from "@/context/LanguageContext";
+import PwaRegister from "@/components/PwaRegister";
+import AiChatbot from "@/components/AiChatbot";
 import "./globals.css";
 
+export const viewport: Viewport = {
+  themeColor: "#4f46e5",
+  width: "device-width",
+  initialScale: 1,
+};
+
 export const metadata: Metadata = {
-  title: "Event Intelligence OS — Multi-Role Hackathon & Expo Platform",
+  title: "Event Intelligence OS — Every event. One intelligent system.",
   description:
-    "Next-gen event infrastructure for hackathons, tech expos and conferences. Live scoring, AI judge matching, scannable QR passes, and tamper-proof certificates.",
+    "From registration and QR check-in to live judging, visitor insights, and certificates — manage your entire event in one place.",
+  manifest: "/manifest.webmanifest",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" className="dark">
-      <body className="bg-[#05070f] text-white antialiased selection:bg-[#c8f31d] selection:text-black">
-        {/* Interactive 3D Background Canvas */}
-        <ThreeDBackground />
+    <html lang="en" className="scroll-smooth">
+      <body className="bg-[#FAFAF9] text-slate-900 antialiased selection:bg-indigo-600 selection:text-white min-h-screen flex flex-col font-sans">
         <AuthProvider>
-          <Navbar />
-          <div className="relative z-10">{children}</div>
+          <LanguageProvider>
+            <PwaRegister />
+            <Navbar />
+            <div className="flex-1">{children}</div>
+            <AiChatbot />
+          </LanguageProvider>
         </AuthProvider>
       </body>
     </html>
   );
 }
-

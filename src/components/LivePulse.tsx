@@ -35,7 +35,7 @@ export default function LivePulse() {
           <span className="h-2 w-2 animate-blink rounded-full bg-red-500" />
           <span className="font-mono text-[11px] uppercase tracking-[0.2em] text-white/60">Live event pulse</span>
         </div>
-        <span className="font-mono rounded-md bg-white/5 px-2 py-1 text-[10px] text-[#c8f31d]">NEXATHON &apos;26</span>
+        <span className="font-mono rounded-lg bg-indigo-500/10 border border-indigo-500/20 px-2.5 py-1 text-[10px] text-indigo-300 font-bold">NEXATHON &apos;26</span>
       </div>
       <div className="mt-4 grid grid-cols-4 gap-2">
         {[

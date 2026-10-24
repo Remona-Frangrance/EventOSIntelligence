@@ -4,6 +4,11 @@ import { judges } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { makeCode } from "@/lib/utils";
 import { memoryStore } from "@/lib/demoData";
+import { requireAuth } from "@/lib/authGuard";
+import { logAudit } from "@/lib/audit";
+import { getClientIp } from "@/lib/rateLimit";
+
+const isProduction = process.env.NODE_ENV === "production";
 
 const AVATARS = [
   "from-violet-500 to-fuchsia-500",
@@ -23,34 +28,49 @@ export async function GET(req: Request) {
     if (code) {
       const rows = await db.select().from(judges).where(eq(judges.code, code.toUpperCase()));
       if (rows[0]) return NextResponse.json(rows[0]);
-      const memJudge = memoryStore.getJudgeByCode(code);
-      if (memJudge) return NextResponse.json(memJudge);
+      if (!isProduction) {
+        const memJudge = memoryStore.getJudgeByCode(code);
+        if (memJudge) return NextResponse.json(memJudge);
+      }
       return NextResponse.json({ error: "Invalid judge code" }, { status: 404 });
     }
     if (eventId) {
       const rows = await db.select().from(judges).where(eq(judges.eventId, eventId));
-      if (rows && rows.length > 0) return NextResponse.json(rows);
-      return NextResponse.json(memoryStore.getJudges(eventId));
+      return NextResponse.json(rows);
     }
     const rows = await db.select().from(judges);
-    if (rows && rows.length > 0) return NextResponse.json(rows);
-    return NextResponse.json(memoryStore.getJudges());
+    return NextResponse.json(rows);
   } catch {
     if (code) {
-      const memJudge = memoryStore.getJudgeByCode(code);
-      if (memJudge) return NextResponse.json(memJudge);
+      if (!isProduction) {
+        const memJudge = memoryStore.getJudgeByCode(code);
+        if (memJudge) return NextResponse.json(memJudge);
+      }
       return NextResponse.json({ error: "Invalid judge code" }, { status: 404 });
     }
+    if (isProduction) return NextResponse.json([]);
     return NextResponse.json(eventId ? memoryStore.getJudges(eventId) : memoryStore.getJudges());
   }
 }
 
 export async function POST(req: Request) {
+  // Enforce admin-only access for creating judges
+  const auth = await requireAuth(req, ["admin"]);
+  if (!auth.authorized) {
+    return auth.response;
+  }
+
+  const clientIp = getClientIp(req);
   const body = await req.json();
+
+  if (!body.name) {
+    return NextResponse.json({ error: "Judge name is required" }, { status: 400 });
+  }
+
   const judgeData = {
-    eventId: body.eventId || "ev-nexathon-26",
-    name: body.name,
-    email: body.email || "",
+    eventId: body.eventId || "9e33a337-5ba7-4c39-9265-426931e481af",
+    name: body.name.trim(),
+    email: body.email ? body.email.trim().toLowerCase() : "",
     organization: body.organization || "",
     expertise: body.expertise || [],
     assignedCategories: body.assignedCategories || [],
@@ -60,8 +80,25 @@ export async function POST(req: Request) {
 
   try {
     const [row] = await db.insert(judges).values(judgeData).returning();
+
+    await logAudit({
+      organizationId: auth.user.organizationId,
+      eventId: judgeData.eventId,
+      userId: auth.user.id,
+      actorEmail: auth.user.email,
+      actorRole: auth.user.role,
+      action: "JUDGE_ASSIGN",
+      targetType: "judge",
+      targetId: row.id,
+      details: { name: row.name, code: row.code, email: row.email },
+      ipAddress: clientIp,
+    });
+
     return NextResponse.json(row, { status: 201 });
-  } catch {
+  } catch (err) {
+    if (isProduction) {
+      return NextResponse.json({ error: "Failed to persist judge in database" }, { status: 500 });
+    }
     const memRow = {
       id: "jd-" + Math.random().toString(36).substring(2, 8),
       ...judgeData,
@@ -73,12 +110,21 @@ export async function POST(req: Request) {
 }
 
 export async function PATCH(req: Request) {
+  // Enforce admin-only access for updating judge assignments
+  const auth = await requireAuth(req, ["admin"]);
+  if (!auth.authorized) {
+    return auth.response;
+  }
+
   const body = await req.json();
   const { id, ...rest } = body;
   try {
     const [row] = await db.update(judges).set(rest).where(eq(judges.id, id)).returning();
     return NextResponse.json(row);
-  } catch {
+  } catch (err) {
+    if (isProduction) {
+      return NextResponse.json({ error: "Failed to update judge in database" }, { status: 500 });
+    }
     return NextResponse.json({ id, ...rest });
   }
 }

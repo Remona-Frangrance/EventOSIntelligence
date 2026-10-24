@@ -121,7 +121,10 @@ export default function CertificatesStudioPage() {
         }),
       });
       const created = await res.json();
-      setCerts((prev) => [created, ...prev]);
+      if (created && created.code) {
+        setPreviewCode(created.code);
+        setCerts((prev) => [created, ...prev.filter((x) => x.id !== created.id)]);
+      }
     } catch {
       // fallback
     }
@@ -511,8 +514,17 @@ export default function CertificatesStudioPage() {
           </div>
 
           {/* Cards Grid */}
-          <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {filteredCerts.map((c) => (
+          {filteredCerts.length === 0 ? (
+            <div className="mt-6 rounded-2xl border border-dashed border-white/10 bg-white/[0.02] p-12 text-center">
+              <FileCheck2 className="mx-auto h-10 w-10 text-white/30" />
+              <h4 className="mt-3 text-sm font-bold text-white">No Certificates Issued Yet</h4>
+              <p className="mt-1 text-xs text-white/50 max-w-sm mx-auto">
+                Certificates are unlocked and issued after an event is concluded by the admin, or you can issue custom credentials using the studio above.
+              </p>
+            </div>
+          ) : (
+            <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+              {filteredCerts.map((c) => (
               <div
                 key={c.id || c.code}
                 className="glass-card group flex flex-col justify-between rounded-2xl p-5 transition hover:-translate-y-1 hover:border-white/20"
@@ -569,7 +581,8 @@ export default function CertificatesStudioPage() {
                 </div>
               </div>
             ))}
-          </div>
+            </div>
+          )}
         </div>
       </div>
     </main>

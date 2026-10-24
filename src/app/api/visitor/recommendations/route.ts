@@ -1,10 +1,12 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { projects } from "@/db/schema";
+import { eq } from "drizzle-orm";
 import { memoryStore } from "@/lib/demoData";
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
+  const eventId = searchParams.get("eventId");
   const rawInterests = searchParams.get("interests");
   const interests: string[] = rawInterests
     ? rawInterests.split(",").map((s) => s.trim().toLowerCase()).filter(Boolean)
@@ -12,14 +14,12 @@ export async function GET(req: Request) {
 
   let allProjects: any[] = [];
   try {
-    const rows = await db.select().from(projects);
-    if (rows && rows.length > 0) {
-      allProjects = rows;
-    } else {
-      allProjects = memoryStore.getProjects();
-    }
+    const rows = eventId
+      ? await db.select().from(projects).where(eq(projects.eventId, eventId))
+      : await db.select().from(projects);
+    allProjects = rows || [];
   } catch {
-    allProjects = memoryStore.getProjects();
+    allProjects = memoryStore.getProjects(eventId || undefined);
   }
 
   const scored = allProjects.map((p) => {

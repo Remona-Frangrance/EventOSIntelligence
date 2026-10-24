@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Event Intelligence OS — Complete Testing Walkthrough</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;700&display=swap');
+
+    @page {
+      size: A4;
+      margin: 15mm 15mm 15mm 15mm;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      color: #0f172a;
+      background-color: #ffffff;
+      line-height: 1.55;
+      font-size: 13px;
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+    }
+
+    .header-banner {
+      background: linear-gradient(135deg, #090d16 0%, #151d30 100%);
+      color: #ffffff;
+      padding: 24px 28px;
+      border-radius: 14px;
+      margin-bottom: 24px;
+      border: 1px solid #1e293b;
+      position: relative;
+    }
+
+    .badge-top {
+      display: inline-block;
+      background: rgba(200, 243, 29, 0.18);
+      color: #c8f31d;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      padding: 4px 10px;
+      border-radius: 6px;
+      border: 1px solid rgba(200, 243, 29, 0.35);
+      margin-bottom: 8px;
+    }
+
+    h1 {
+      font-size: 24px;
+      font-weight: 800;
+      letter-spacing: -0.02em;
+      margin-bottom: 6px;
+      color: #ffffff;
+    }
+
+    .subtitle {
+      font-size: 13px;
+      color: #94a3b8;
+      max-width: 650px;
+    }
+
+    h2 {
+      font-size: 16px;
+      font-weight: 800;
+      color: #0f172a;
+      margin-top: 24px;
+      margin-bottom: 12px;
+      border-bottom: 2px solid #e2e8f0;
+      padding-bottom: 6px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    /* Table Styles */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+      margin-bottom: 20px;
+      font-size: 12px;
+      background: #f8fafc;
+      border-radius: 8px;
+      overflow: hidden;
+      border: 1px solid #e2e8f0;
+    }
+
+    th {
+      background: #0f172a;
+      color: #ffffff;
+      text-align: left;
+      padding: 9px 12px;
+      font-weight: 700;
+      font-size: 11px;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    td {
+      padding: 9px 12px;
+      border-bottom: 1px solid #e2e8f0;
+      color: #334155;
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    .role-badge {
+      display: inline-block;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 3px 8px;
+      border-radius: 5px;
+    }
+
+    .badge-admin { background: #fee2e2; color: #991b1b; }
+    .badge-judge { background: #fef3c7; color: #92400e; }
+    .badge-team { background: #e0f2fe; color: #075985; }
+    .badge-visitor { background: #f0fdf4; color: #166534; }
+
+    /* Step Card */
+    .step-card {
+      background: #ffffff;
+      border: 1px solid #cbd5e1;
+      border-left: 4px solid #0f172a;
+      border-radius: 10px;
+      padding: 14px 18px;
+      margin-bottom: 16px;
+      page-break-inside: avoid;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.03);
+    }
+
+    .step-card.admin { border-left-color: #ef4444; }
+    .step-card.participant { border-left-color: #06b6d4; }
+    .step-card.judge { border-left-color: #f59e0b; }
+    .step-card.visitor { border-left-color: #10b981; }
+    .step-card.cert { border-left-color: #8b5cf6; }
+
+    .step-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 8px;
+    }
+
+    .step-title {
+      font-size: 14px;
+      font-weight: 800;
+      color: #0f172a;
+    }
+
+    .step-url {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      color: #2563eb;
+      background: #eff6ff;
+      padding: 2px 7px;
+      border-radius: 4px;
+      border: 1px solid #bfdbfe;
+    }
+
+    .step-desc {
+      color: #475569;
+      font-size: 12px;
+      margin-bottom: 8px;
+    }
+
+    ol, ul {
+      margin-left: 20px;
+      margin-bottom: 8px;
+      color: #334155;
+    }
+
+    li {
+      margin-bottom: 4px;
+      font-size: 12px;
+    }
+
+    .code-box {
+      background: #0f172a;
+      color: #f8fafc;
+      font-family: 'JetBrains Mono', monospace;
+      padding: 10px 14px;
+      border-radius: 6px;
+      font-size: 11px;
+      margin: 8px 0;
+      overflow-x: auto;
+    }
+
+    .highlight-box {
+      background: #f1f5f9;
+      border: 1px dashed #94a3b8;
+      border-radius: 6px;
+      padding: 8px 12px;
+      font-size: 11.5px;
+      color: #1e293b;
+      margin-top: 6px;
+    }
+
+    .footer {
+      margin-top: 30px;
+      padding-top: 14px;
+      border-top: 1px solid #e2e8f0;
+      text-align: center;
+      font-size: 11px;
+      color: #94a3b8;
+      font-family: 'JetBrains Mono', monospace;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="header-banner">
+    <div class="badge-top">Verified End-to-End Test Specification</div>
+    <h1>EVENT INTELLIGENCE OS</h1>
+    <div class="subtitle">Complete step-by-step verification guide for Admin OS, Jury Pad, Participant Hub, Digital Gate Pass, and Expo Visitor Portal.</div>
+  </div>
+
+  <h2>🔑 Quick Access & Test Credentials</h2>
+  <table>
+    <thead>
+      <tr>
+        <th>Role</th>
+        <th>Portal Route</th>
+        <th>Login / Access Code</th>
+        <th>Key Actions to Test</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><span class="role-badge badge-admin">Admin</span></td>
+        <td><code>/console</code></td>
+        <td><code>alex.chen@innovateos.io</code> / <code>admin123</code></td>
+        <td>Master mission control, event creator, judge onboarding, certs</td>
+      </tr>
+      <tr>
+        <td><span class="role-badge badge-judge">Judge</span></td>
+        <td><code>/judge</code></td>
+        <td><code>JUDGE-WK8U</code> (Dr. Ananya Sharma)</td>
+        <td>4-criteria rubric, weighted scores, fair-scoring engine</td>
+      </tr>
+      <tr>
+        <td><span class="role-badge badge-team">Team</span></td>
+        <td><code>/participant</code></td>
+        <td><code>rohan.patel@example.com</code> / <code>pass123</code></td>
+        <td>Booth pass QR, direct file upload, real-time jury status</td>
+      </tr>
+      <tr>
+        <td><span class="role-badge badge-visitor">Visitor</span></td>
+        <td><code>/gate</code> & <code>/p/[code]</code></td>
+        <td>Common Gate QR Code</td>
+        <td>Fast gate check-in, crowd voting, 5-star review submission</td>
+      </tr>
+      <tr>
+        <td><span class="role-badge badge-visitor">Gate Staff</span></td>
+        <td><code>/checkin</code></td>
+        <td>Venue Entry Terminal</td>
+        <td>Scan attendee pass QR code with audio check-in verification</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <h2>📋 Step-by-Step Testing Workflow</h2>
+
+  <!-- Step 1 -->
+  <div class="step-card admin">
+    <div class="step-header">
+      <span class="step-title">Step 1: Admin Mission Control & Event Setup</span>
+      <span class="step-url">http://localhost:3000/console</span>
+    </div>
+    <div class="step-desc">Verify that administrator privileges protect master event controls.</div>
+    <ol>
+      <li>Go to <code>/login</code> and sign in with Admin credentials (<code>alex.chen@innovateos.io</code> / <code>admin123</code>).</li>
+      <li>Open <code>/console</code>. Verify that non-admin roles are restricted and redirected.</li>
+      <li>Click <strong>Judges + AI</strong> tab ➔ Click <strong>+ Onboard Judge</strong>.</li>
+      <li>Enter Name: <em>Dr. Rajesh Sen</em>, Org: <em>Venture Scout</em> ➔ Generate official code.</li>
+      <li>Click <strong>Visitors</strong> tab ➔ Inspect the <strong>Common Venue Gate QR Code</strong>.</li>
+    </ol>
+  </div>
+
+  <!-- Step 2 -->
+  <div class="step-card participant">
+    <div class="step-header">
+      <span class="step-title">Step 2: Participant Project Submission (File Upload)</span>
+      <span class="step-url">http://localhost:3000/register</span>
+    </div>
+    <div class="step-desc">Test submitting a project with the new drag-and-drop file uploader and event picker.</div>
+    <ol>
+      <li>Open <code>/register</code> and switch to the <strong>Participant / Team</strong> tab.</li>
+      <li><strong>Event Selector:</strong> Pick your event (e.g. <em>TechNova Expo 2026</em>).</li>
+      <li><strong>Direct File Upload:</strong> Click the banner upload box and select any image file (PNG/JPG). Notice the instant canvas-compressed preview thumbnail.</li>
+      <li>Enter Title: <code>AgroSense Drone</code>, Track: <code>IoT</code>, Team: <code>SkyBots</code>, Lead: <code>Pooja Sharma</code>.</li>
+      <li>Click <strong>Submit Project</strong>. System generates booth code (e.g., <code>PRJ-XYZ123</code>) and booth location (<code>B-12</code>).</li>
+    </ol>
+  </div>
+
+  <!-- Step 3 -->
+  <div class="step-card participant">
+    <div class="step-header">
+      <span class="step-title">Step 3: Team Dashboard & Digital Booth Pass</span>
+      <span class="step-url">http://localhost:3000/participant</span>
+    </div>
+    <div class="step-desc">Inspect booth pass QR code, live showcase card, and judge evaluation tracker.</div>
+    <ol>
+      <li>Verify the <strong>Booth Digital Pass & QR Code</strong> displayed in the right column.</li>
+      <li>Verify the <strong>Judges Evaluated Counter:</strong> Accurately reflects only real assigned judges (e.g. <code>0 / 1 Evaluated</code>) with no fake demo judges.</li>
+      <li>Verify the <strong>Uploaded Banner Image</strong> renders in high resolution on the preview card.</li>
+    </ol>
+  </div>
+
+  <!-- Step 4 -->
+  <div class="step-card judge">
+    <div class="step-header">
+      <span class="step-title">Step 4: Grand Jury Evaluation Pad</span>
+      <span class="step-url">http://localhost:3000/judge?code=JUDGE-WK8U</span>
+    </div>
+    <div class="step-desc">Evaluate assigned projects with multi-criteria rubric and fair-scoring distribution.</div>
+    <ol>
+      <li>Log in with Code: <code>JUDGE-WK8U</code> (Dr. Ananya Sharma).</li>
+      <li>Notice the header: <code>Jury Portal: Dr. Ananya Sharma [TechNova Expo 2026]</code>.</li>
+      <li><strong>Strict Event Isolation:</strong> Switcher shows only onboarded judges for this event; demo judges from other events are completely excluded.</li>
+      <li>Select <code>JalRakshak AI</code> from the left project column.</li>
+      <li>Set scores: Innovation (9), Execution (8), Impact (9), Pitch (8) = <strong>34/40</strong>.</li>
+      <li>Click <strong>Submit Score as Dr. Ananya</strong> ➔ Score is recorded and synchronized live.</li>
+    </ol>
+  </div>
+
+  <!-- Step 5 -->
+  <div class="step-card visitor">
+    <div class="step-header">
+      <span class="step-title">Step 5: Venue Gate Admission & QR Scanning</span>
+      <span class="step-url">http://localhost:3000/gate & /checkin</span>
+    </div>
+    <div class="step-desc">Paperless attendee arrival and high-speed venue check-in.</div>
+    <ol>
+      <li>Open <code>/gate</code>. Enter Name (<code>Karan Verma</code>) and Email (<code>karan@example.com</code>).</li>
+      <li>Click <strong>Issue Official Digital Gate Pass</strong> ➔ Generates digital pass with code <code>VIS-10023</code>.</li>
+      <li>Open Gate Scanner at <code>/checkin</code> ➔ Type <code>VIS-10023</code> (or scan QR code) ➔ Displays verified admission timestamp with green checkmark.</li>
+    </ol>
+  </div>
+
+  <!-- Step 6 -->
+  <div class="step-card visitor">
+    <div class="step-header">
+      <span class="step-title">Step 6: Crowd Prize Voting & Attendee Reviews</span>
+      <span class="step-url">http://localhost:3000/p/PRJ-NS8SAK</span>
+    </div>
+    <div class="step-desc">Verify that crowd voting is strictly reserved for attendees and test visitor reviews.</div>
+    <ol>
+      <li>Open Project Profile: <code>/p/PRJ-NS8SAK</code> (JalRakshak AI).</li>
+      <li><strong>Role-Based Voting Restriction:</strong> If signed in as team participant, voting is disabled with the warning: <em>"Participants cannot vote (reserved for visitors)"</em>.</li>
+      <li>As a visitor: Click <strong>Vote for crowd prize</strong> ➔ Counter increments and turns into <code>Voted · X</code>.</li>
+      <li>Under <strong>Leave a Review</strong>: Select 5 Stars ⭐⭐⭐⭐⭐, enter comment: <em>"Outstanding hardware demo!"</em> ➔ Review appears instantly in the live feed.</li>
+    </ol>
+  </div>
+
+  <!-- Step 7 -->
+  <div class="step-card cert">
+    <div class="step-header">
+      <span class="step-title">Step 7: Certificate Studio</span>
+      <span class="step-url">http://localhost:3000/certificates</span>
+    </div>
+    <div class="step-desc">Generate verifiable digital awards with cryptographic verification codes.</div>
+    <ol>
+      <li>Open <code>/certificates</code> ➔ Select recipient and award tier (e.g. <em>1st Place Grand Winner</em>).</li>
+      <li>Click <strong>Generate Certificate</strong> ➔ Produces official certificate with verification hash.</li>
+      <li>Verify cryptographic authenticity at <code>/verify/[code]</code>.</li>
+    </ol>
+  </div>
+
+  <div class="highlight-box">
+    <strong>Cloud Database Connectivity:</strong> Powered by Supabase PostgreSQL (<code>aws-0-ap-south-1.pooler.supabase.com:5432</code>) with connection pooling and memory fallback.
+  </div>
+
+  <div class="footer">
+    EventOSIntelligence · Built with Next.js 16 (Turbopack) & Supabase PostgreSQL · Ready for Production Deployment
+  </div>
+
+</body>
+</html>

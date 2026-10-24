@@ -11,6 +11,7 @@ export type AuthUser = {
   email: string;
   role: UserRole;
   avatar?: string;
+  organizationId?: string | null;
   organization?: string;
   phone?: string;
   interests?: string[];
@@ -25,7 +26,7 @@ type AuthContextType = {
   loginJudge: (code: string) => Promise<{ success: boolean; error?: string }>;
   quickLogin: (email: string, password: string) => Promise<boolean>;
   register: (data: any) => Promise<{ success: boolean; error?: string }>;
-  logout: () => void;
+  logout: () => Promise<void>;
   updateInterests: (interests: string[]) => Promise<void>;
   updateUser: (updates: Partial<AuthUser>) => void;
   isAdmin: boolean;
@@ -43,14 +44,44 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
+  // Validate server-side session cookie on mount
   useEffect(() => {
-    try {
-      const stored = localStorage.getItem(LOCAL_STORAGE_KEY);
-      if (stored) {
-        setUser(JSON.parse(stored));
+    let isMounted = true;
+
+    async function checkSession() {
+      try {
+        // Fast optimistic initial hydration from storage
+        const stored = localStorage.getItem(LOCAL_STORAGE_KEY);
+        if (stored && isMounted) {
+          try {
+            setUser(JSON.parse(stored));
+          } catch {}
+        }
+
+        // Verify with server httpOnly cookie
+        const res = await fetch("/api/auth/me", { credentials: "include" });
+        if (res.ok) {
+          const data = await res.json();
+          if (data.authenticated && data.user && isMounted) {
+            setUser(data.user);
+            localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(data.user));
+          } else if (!data.authenticated && isMounted) {
+            setUser(null);
+            localStorage.removeItem(LOCAL_STORAGE_KEY);
+          }
+        }
+      } catch (err) {
+        // Network offline or error
+      } finally {
+        if (isMounted) setLoading(false);
       }
-    } catch {}
-    setLoading(false);
+    }
+
+    checkSession();
+
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   function saveUser(u: AuthUser | null) {
@@ -67,6 +98,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ email, password }),
       });
       const data = await res.json();
@@ -85,6 +117,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ judgeCode }),
       });
       const data = await res.json();
@@ -119,6 +152,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const res = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify(data),
       });
       const resData = await res.json();
@@ -132,7 +166,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
-  function logout() {
+  async function logout() {
+    try {
+      await fetch("/api/auth/logout", { method: "POST", credentials: "include" });
+    } catch {}
     saveUser(null);
     router.push("/login");
   }
@@ -145,6 +182,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await fetch("/api/visitor/interests", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include",
         body: JSON.stringify({ email: user.email, userId: user.id, interests }),
       });
     } catch {}

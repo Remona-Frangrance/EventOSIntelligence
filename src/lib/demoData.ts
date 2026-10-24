@@ -121,6 +121,7 @@ export type DemoCertificate = {
   signatory1?: string;
   signatory2?: string;
   theme?: string;
+  verificationHash?: string;
 };
 
 export type DemoFeedback = {
@@ -288,6 +289,30 @@ export const INITIAL_EVENTS: DemoEvent[] = [
     createdAt: new Date(now.getTime() - 86400000).toISOString(),
     stats: { projects: 12, visitors: 580, scores: 0, scans: 290 },
   },
+  {
+    id: "ev-techmanjari-26",
+    name: "TECHMANJARI '26 — National Technical Symposium & Hackathon",
+    slug: "techmanjari-26",
+    type: "hackathon",
+    tagline: "Innovate, Code & Elevate · Gujarat's Premier National Tech Conclave",
+    description: "TECHMANJARI is the premier annual national-level technical symposium and 36-hour hackathon bringing together 150+ teams competing in AI/ML, CyberSecurity, Robotics & IoT, and Web3 with industry grand jury evaluations.",
+    venue: "Campus Central Auditorium & Innovation Dome",
+    city: "Vadodara / Ahmedabad",
+    startsAt: new Date(now.getTime() - 2 * 3600000).toISOString(),
+    endsAt: new Date(now.getTime() + 46 * 3600000).toISOString(),
+    status: "live",
+    bannerGradient: "from-emerald-500 via-teal-600 to-indigo-700",
+    scoringCriteria: [
+      { key: "innovation", label: "Innovation & Originality", max: 10, weight: 1.2 },
+      { key: "execution", label: "Engineering Rigor & Architecture", max: 10, weight: 1.0 },
+      { key: "impact", label: "Real-world Societal Impact", max: 10, weight: 1.0 },
+      { key: "pitch", label: "Live Demonstration & Defense", max: 10, weight: 0.8 },
+    ],
+    categories: ["AI/ML", "CyberSecurity", "Robotics & IoT", "Web3 & Blockchain", "Open Innovation"],
+    registrationOpen: true,
+    createdAt: new Date(now.getTime() - 86400000 * 3).toISOString(),
+    stats: { projects: 10, visitors: 420, scores: 18, scans: 890 },
+  },
 ];
 
 export const INITIAL_PROJECTS: DemoProject[] = [
@@ -422,6 +447,58 @@ export const INITIAL_PROJECTS: DemoProject[] = [
     views: 710,
     checkins: 115,
     votes: 89,
+    createdAt: new Date().toISOString(),
+  },
+  {
+    id: "p-dronevision",
+    eventId: "ev-techmanjari-26",
+    title: "DroneVision Sentinel — Aerial Infrastructure Inspection",
+    category: "Robotics & IoT",
+    teamName: "AeroByte Systems",
+    leaderName: "Kunal Shah",
+    leaderEmail: "kunal@aerobyte.in",
+    leaderPhone: "+91 98220 11223",
+    members: [
+      { name: "Kunal Shah", role: "Flight Dynamics & Embedded" },
+      { name: "Pooja Trivedi", role: "CV & YOLOv8" },
+    ],
+    description: "Autonomous edge drone computing for bridge and solar panel thermal inspection using micro-LIDAR and real-time crack classification.",
+    techStack: ["PX4 Autopilot", "ROS2", "YOLOv8", "Jetson Orin", "Python"],
+    imageUrl: "https://images.unsplash.com/photo-1527977966376-1c8408f9f108?w=800&auto=format&fit=crop&q=80",
+    demoUrl: "https://dronevision.aerobyte.in",
+    repoUrl: "https://github.com/aerobyte/dronevision",
+    code: "PRJ-TM99A1",
+    status: "approved",
+    boothNo: "TM-01",
+    views: 890,
+    checkins: 140,
+    votes: 112,
+    createdAt: new Date().toISOString(),
+  },
+  {
+    id: "p-vajrashield",
+    eventId: "ev-techmanjari-26",
+    title: "VajraShield — Zero-Trust Cloud SIEM & Threat Defense",
+    category: "CyberSecurity",
+    teamName: "CyberKnights Vadodara",
+    leaderName: "Rohan Varma",
+    leaderEmail: "rohan@cyberknights.org",
+    leaderPhone: "+91 97233 44556",
+    members: [
+      { name: "Rohan Varma", role: "SecOps Lead" },
+      { name: "Dhruv Patel", role: "eBPF Kernel Dev" },
+    ],
+    description: "Real-time kernel telemetry and ransomware kill-switch powered by eBPF and LLM prompt-injection detection firewall.",
+    techStack: ["eBPF", "Rust", "Go", "Docker", "ClickHouse"],
+    imageUrl: "https://images.unsplash.com/photo-1550751827-4bd374c3f58b?w=800&auto=format&fit=crop&q=80",
+    demoUrl: "https://vajrashield.cyberknights.org",
+    repoUrl: "https://github.com/cyberknights/vajrashield",
+    code: "PRJ-TM88B2",
+    status: "approved",
+    boothNo: "TM-02",
+    views: 640,
+    checkins: 92,
+    votes: 78,
     createdAt: new Date().toISOString(),
   },
 ];
@@ -615,19 +692,30 @@ export const INITIAL_FEEDBACKS: DemoFeedback[] = [
 
 // In-memory mutation cache ensuring smooth state synchronization
 const memoryUsers = [...INITIAL_USERS];
-const memoryEvents = [...INITIAL_EVENTS];
-const memoryProjects = [...INITIAL_PROJECTS];
-const memoryJudges = [...INITIAL_JUDGES];
-const memoryScores = [...INITIAL_SCORES];
-const memoryVisitors = [...INITIAL_VISITORS];
-const memoryCertificates = [...INITIAL_CERTIFICATES];
-const memoryFeedbacks = [...INITIAL_FEEDBACKS];
+const memoryEvents: DemoEvent[] = [];
+const memoryProjects: DemoProject[] = [];
+const memoryJudges: DemoJudge[] = [];
+const memoryScores: DemoScore[] = [];
+const memoryVisitors: DemoVisitor[] = [];
+const memoryCertificates: DemoCertificate[] = [];
+const memoryFeedbacks: DemoFeedback[] = [];
+
+const isProduction = process.env.NODE_ENV === "production";
 
 export const memoryStore = {
+  clearAll: () => {
+    memoryEvents.length = 0;
+    memoryProjects.length = 0;
+    memoryJudges.length = 0;
+    memoryScores.length = 0;
+    memoryVisitors.length = 0;
+    memoryCertificates.length = 0;
+    memoryFeedbacks.length = 0;
+  },
   // Users
-  getUsers: () => memoryUsers,
-  getUserByEmail: (email: string) => memoryUsers.find((u) => u.email.toLowerCase() === email.toLowerCase()),
-  getUserById: (id: string) => memoryUsers.find((u) => u.id === id),
+  getUsers: () => (isProduction ? [] : memoryUsers),
+  getUserByEmail: (email: string) => (isProduction ? undefined : memoryUsers.find((u) => u.email.toLowerCase() === email.toLowerCase())),
+  getUserById: (id: string) => (isProduction ? undefined : memoryUsers.find((u) => u.id === id)),
   addUser: (u: DemoUser) => {
     memoryUsers.unshift(u);
     return u;
@@ -642,8 +730,8 @@ export const memoryStore = {
   },
 
   // Events
-  getEvents: () => memoryEvents,
-  getEventById: (id: string) => memoryEvents.find((e) => e.id === id || e.slug === id),
+  getEvents: () => (isProduction ? [] : memoryEvents),
+  getEventById: (id: string) => (isProduction ? undefined : memoryEvents.find((e) => e.id === id || e.slug === id)),
   addEvent: (ev: DemoEvent) => {
     memoryEvents.unshift(ev);
     return ev;
@@ -651,11 +739,12 @@ export const memoryStore = {
 
   // Projects
   getProjects: (eventId?: string) => {
+    if (isProduction) return [];
     return eventId ? memoryProjects.filter((p) => p.eventId === eventId) : memoryProjects;
   },
-  getProjectById: (id: string) => memoryProjects.find((p) => p.id === id),
-  getProjectByCode: (code: string) => memoryProjects.find((p) => p.code.toUpperCase() === code.toUpperCase()),
-  getProjectByUserId: (userId: string) => memoryProjects.find((p) => p.userId === userId),
+  getProjectById: (id: string) => (isProduction ? undefined : memoryProjects.find((p) => p.id === id)),
+  getProjectByCode: (code: string) => (isProduction ? undefined : memoryProjects.find((p) => p.code.toUpperCase() === code.toUpperCase())),
+  getProjectByUserId: (userId: string) => (isProduction ? undefined : memoryProjects.find((p) => p.userId === userId)),
   addProject: (p: DemoProject) => {
     memoryProjects.unshift(p);
     return p;
@@ -671,10 +760,11 @@ export const memoryStore = {
 
   // Judges
   getJudges: (eventId?: string) => {
+    if (isProduction) return [];
     return eventId ? memoryJudges.filter((j) => j.eventId === eventId) : memoryJudges;
   },
-  getJudgeByCode: (code: string) => memoryJudges.find((j) => j.code.toUpperCase() === code.toUpperCase()),
-  getJudgeByEmail: (email: string) => memoryJudges.find((j) => j.email.toLowerCase() === email.toLowerCase()),
+  getJudgeByCode: (code: string) => (isProduction ? undefined : memoryJudges.find((j) => j.code.toUpperCase() === code.toUpperCase())),
+  getJudgeByEmail: (email: string) => (isProduction ? undefined : memoryJudges.find((j) => j.email.toLowerCase() === email.toLowerCase())),
   addJudge: (j: DemoJudge) => {
     memoryJudges.unshift(j);
     return j;
@@ -682,6 +772,7 @@ export const memoryStore = {
 
   // Scores
   getScores: (params?: { eventId?: string; projectId?: string; judgeId?: string }) => {
+    if (isProduction) return [];
     return memoryScores.filter((s) => {
       if (params?.eventId && s.eventId !== params.eventId) return false;
       if (params?.projectId && s.projectId !== params.projectId) return false;
@@ -703,12 +794,21 @@ export const memoryStore = {
 
   // Visitors
   getVisitors: (eventId?: string) => {
+    if (isProduction) return [];
     return eventId ? memoryVisitors.filter((v) => v.eventId === eventId) : memoryVisitors;
   },
-  getVisitorByCode: (code: string) => memoryVisitors.find((v) => v.code.toUpperCase() === code.toUpperCase()),
-  getVisitorByUserId: (userId: string) => memoryVisitors.find((v) => v.userId === userId),
+  getVisitorByCode: (code: string) => (isProduction ? undefined : memoryVisitors.find((v) => v.code.toUpperCase() === code.toUpperCase())),
+  getVisitorByUserId: (userId: string) => (isProduction ? undefined : memoryVisitors.find((v) => v.userId === userId)),
   addVisitor: (v: DemoVisitor) => {
     memoryVisitors.unshift(v);
+    return v;
+  },
+  checkInVisitor: (id: string) => {
+    const v = memoryVisitors.find((x) => x.id === id);
+    if (v) {
+      v.checkedIn = true;
+      v.checkinAt = new Date().toISOString();
+    }
     return v;
   },
   updateVisitor: (id: string, updates: Partial<DemoVisitor>) => {
@@ -722,6 +822,7 @@ export const memoryStore = {
 
   // Certificates
   getCertificates: (eventId?: string, code?: string) => {
+    if (isProduction) return code ? undefined : [];
     if (code) return memoryCertificates.find((c) => c.code.toUpperCase() === code.toUpperCase());
     return eventId ? memoryCertificates.filter((c) => c.eventId === eventId) : memoryCertificates;
   },
@@ -732,6 +833,7 @@ export const memoryStore = {
 
   // Feedback
   getFeedbacks: (eventId?: string, projectId?: string) => {
+    if (isProduction) return [];
     return memoryFeedbacks.filter((f) => {
       if (eventId && f.eventId !== eventId) return false;
       if (projectId && f.projectId !== projectId) return false;

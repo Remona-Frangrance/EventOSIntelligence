@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
-import { Eye, ScanLine, Heart, ExternalLink, MapPin, Sparkles, MessageSquareHeart, Star, Gavel } from "lucide-react";
+import { Eye, ScanLine, Heart, ExternalLink, MapPin, Sparkles, MessageSquareHeart, Star, Gavel, Video } from "lucide-react";
 
 export default function ProjectProfile() {
   const { code } = useParams<{ code: string }>();
@@ -13,6 +13,7 @@ export default function ProjectProfile() {
     id: string; eventId: string; title: string; category: string; teamName: string; leaderName: string;
     description: string; techStack: string[]; members: { name: string }[]; boothNo: string; code: string;
     views: number; checkins: number; votes: number; demoUrl: string; imageUrl?: string; repoUrl?: string;
+    videoUrl?: string;
   } | null>(null);
   const [recs, setRecs] = useState<{ id: string; title: string; category: string; score: number; full: { code: string; teamName: string } }[]>([]);
   const [rank, setRank] = useState<number | null>(null);
@@ -156,12 +157,43 @@ export default function ProjectProfile() {
           <div className="mt-4 rounded-2xl bg-white/[0.03] p-4">
             <div className="font-mono text-[10px] uppercase tracking-widest text-white/40">The crew</div>
             <div className="mt-2 flex flex-wrap gap-2">
-              <span className="rounded-lg bg-[#c8f31d]/15 px-3 py-1.5 text-[13px] font-semibold text-[#c8f31d]">{p.leaderName} · Lead</span>
+              <span className="rounded-lg bg-[#c8f31d]/15 px-3 py-1.5 text-[13px] font-semibold text-[#c8f31d]">{p.leaderName || "Project Lead"} · Lead</span>
               {p.members.map((m, i) => (
                 <span key={i} className="rounded-lg bg-white/5 px-3 py-1.5 text-[13px] text-white/70">{m.name}</span>
               ))}
             </div>
           </div>
+
+          {/* Project Demo / Pitch Video */}
+          {p.videoUrl && (
+            <div className="mt-4 rounded-2xl border border-white/10 bg-white/[0.02] p-4">
+              <div className="font-mono flex items-center gap-2 text-[10px] font-bold uppercase tracking-wider text-cyan-300">
+                <Video className="h-3.5 w-3.5" /> Project Pitch & Demo Video
+              </div>
+              <div className="mt-3 overflow-hidden rounded-xl border border-white/10 bg-black aspect-video flex items-center justify-center">
+                {p.videoUrl.includes("youtube.com") || p.videoUrl.includes("youtu.be") ? (
+                  <iframe
+                    src={
+                      p.videoUrl.includes("watch?v=")
+                        ? p.videoUrl.replace("watch?v=", "embed/")
+                        : p.videoUrl.replace("youtu.be/", "www.youtube.com/embed/")
+                    }
+                    title="Project pitch video"
+                    className="h-full w-full"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                  />
+                ) : (
+                  <video
+                    src={p.videoUrl}
+                    controls
+                    className="h-full w-full object-contain"
+                    preload="metadata"
+                  />
+                )}
+              </div>
+            </div>
+          )}
           <div className="mt-4 grid grid-cols-2 gap-2">
             {user?.role === "participant" ? (
               <div className="flex flex-col items-center justify-center rounded-xl border border-white/10 bg-white/[0.03] p-3 text-center">
