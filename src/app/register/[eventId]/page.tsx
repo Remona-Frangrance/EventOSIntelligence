@@ -17,6 +17,7 @@ import {
   ExternalLink,
   QrCode as QrIcon,
   Check,
+  ArrowLeft,
 } from "lucide-react";
 
 type EventDetails = {
@@ -61,6 +62,15 @@ export default function RegisterPage() {
   const [tech, setTech] = useState("");
   const [done, setDone] = useState<{ title: string; code: string; boothNo: string; teamName: string } | null>(null);
   const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const sp = new URLSearchParams(window.location.search);
+      if (sp.get("tab") === "team") {
+        setActiveTab("team");
+      }
+    }
+  }, []);
 
   useEffect(() => {
     fetch(`/api/events/${eventId}`)
@@ -138,32 +148,66 @@ export default function RegisterPage() {
     e.preventDefault();
     setSaving(true);
     const fd = new FormData(e.currentTarget);
-    const r = await fetch("/api/projects", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        eventId,
-        title: fd.get("title"),
-        category: fd.get("category"),
-        teamName: fd.get("team"),
-        leaderName: fd.get("leader"),
-        leaderEmail: fd.get("email"),
-        leaderPhone: fd.get("phone"),
-        members: members.filter(Boolean).map((m) => ({ name: m, role: "Member" })),
-        description: fd.get("desc"),
-        techStack: tech.split(",").map((s) => s.trim()).filter(Boolean),
-        demoUrl: fd.get("demo"),
-      }),
-    });
-    const d = await r.json();
-    setDone(d);
-    setSaving(false);
+    try {
+      const r = await fetch("/api/projects", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          eventId,
+          title: fd.get("title"),
+          category: fd.get("category"),
+          teamName: fd.get("team"),
+          leaderName: fd.get("leader"),
+          leaderEmail: fd.get("email"),
+          leaderPhone: fd.get("phone"),
+          members: members.filter(Boolean).map((m) => ({ name: m, role: "Member" })),
+          description: fd.get("desc"),
+          techStack: tech.split(",").map((s) => s.trim()).filter(Boolean),
+          demoUrl: fd.get("demo"),
+        }),
+      });
+      const d = await r.json();
+      if (!r.ok || !d || d.error || !d.code) {
+        alert(d?.error || "Registration failed. Please check your project submission details and try again.");
+        setSaving(false);
+        return;
+      }
+      setDone(d);
+    } catch {
+      alert("Network error occurred while submitting project. Please check your connection and try again.");
+    } finally {
+      setSaving(false);
+    }
   }
 
   // TICKET CONFIRMATION VIEW
   if (ticketDone) {
     return (
-      <main className="mx-auto max-w-lg px-4 pb-24 pt-32 text-center">
+      <main className="mx-auto max-w-lg px-4 pb-24 pt-28 text-center">
+        <div className="mb-4 flex items-center justify-between">
+          <button
+            onClick={() => {
+              if (typeof window !== "undefined") {
+                if (window.history.length > 1) {
+                  window.history.back();
+                } else {
+                  window.location.href = "/console";
+                }
+              }
+            }}
+            className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition shadow-xs"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" />
+            <span>Back</span>
+          </button>
+          <Link
+            href="/console"
+            className="text-xs font-semibold text-slate-500 hover:text-indigo-600 transition"
+          >
+            Admin Console →
+          </Link>
+        </div>
+
         <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-xl">
           <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600">
             <CheckCircle2 className="h-8 w-8" />
@@ -196,17 +240,26 @@ export default function RegisterPage() {
             >
               Open Full-Screen Gate Pass →
             </Link>
-            <button
-              onClick={() => {
-                setTicketDone(null);
-                setAttendeeName("");
-                setAttendeeEmail("");
-                setAttendeePhone("");
-              }}
-              className="rounded-xl border border-slate-200 bg-white py-2.5 text-xs font-medium text-slate-600 hover:bg-slate-50 transition"
-            >
-              Register Another Attendee
-            </button>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={() => {
+                  setTicketDone(null);
+                  setAttendeeName("");
+                  setAttendeeEmail("");
+                  setAttendeePhone("");
+                }}
+                className="rounded-xl border border-slate-200 bg-white py-2.5 text-xs font-medium text-slate-600 hover:bg-slate-50 transition"
+              >
+                Register Another
+              </button>
+              <Link
+                href="/console"
+                className="flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 py-2.5 text-xs font-medium text-slate-700 transition"
+              >
+                <ArrowLeft className="h-3.5 w-3.5" />
+                <span>Console</span>
+              </Link>
+            </div>
           </div>
         </div>
       </main>
@@ -216,7 +269,31 @@ export default function RegisterPage() {
   // TEAM REGISTRATION CONFIRMATION VIEW
   if (done) {
     return (
-      <main className="mx-auto max-w-lg px-4 pb-24 pt-32 text-center">
+      <main className="mx-auto max-w-lg px-4 pb-24 pt-28 text-center">
+        <div className="mb-4 flex items-center justify-between">
+          <button
+            onClick={() => {
+              if (typeof window !== "undefined") {
+                if (window.history.length > 1) {
+                  window.history.back();
+                } else {
+                  window.location.href = "/console";
+                }
+              }
+            }}
+            className="inline-flex items-center gap-1.5 rounded-xl border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition shadow-xs"
+          >
+            <ArrowLeft className="h-3.5 w-3.5" />
+            <span>Back</span>
+          </button>
+          <Link
+            href="/console"
+            className="text-xs font-semibold text-slate-500 hover:text-indigo-600 transition"
+          >
+            Admin Console →
+          </Link>
+        </div>
+
         <div className="rounded-3xl border border-slate-200 bg-white p-8 shadow-xl">
           <CheckCircle2 className="mx-auto h-12 w-12 text-emerald-600" />
           <h1 className="mt-4 text-2xl font-bold text-slate-900">
@@ -231,20 +308,29 @@ export default function RegisterPage() {
               size={190}
             />
           </div>
-          <div className="mt-3 font-mono text-xs font-bold text-indigo-600">{done.code}</div>
-          <div className="mt-6 grid grid-cols-2 gap-2">
+          <div className="mt-3 font-mono text-xs font-bold text-indigo-600">CODE: {done.code}</div>
+          <div className="mt-6 flex flex-col gap-2.5">
             <Link
               href={`/p/${done.code}`}
-              className="rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white py-2.5 text-xs font-semibold transition"
+              className="rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white py-2.5 text-xs font-semibold shadow-xs transition"
             >
-              View Live Profile
+              View Live Profile &amp; Booth →
             </Link>
-            <button
-              onClick={() => setDone(null)}
-              className="rounded-xl border border-slate-200 bg-white hover:bg-slate-50 py-2.5 text-xs font-medium text-slate-700 transition"
-            >
-              Register Another
-            </button>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={() => setDone(null)}
+                className="rounded-xl border border-slate-200 bg-white hover:bg-slate-50 py-2.5 text-xs font-medium text-slate-700 transition"
+              >
+                Register Another
+              </button>
+              <Link
+                href="/console"
+                className="flex items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 py-2.5 text-xs font-medium text-slate-700 transition"
+              >
+                <ArrowLeft className="h-3.5 w-3.5" />
+                <span>Console</span>
+              </Link>
+            </div>
           </div>
         </div>
       </main>
@@ -270,6 +356,31 @@ export default function RegisterPage() {
 
   return (
     <main className="mx-auto max-w-3xl px-4 pb-24 pt-28">
+      {/* Top Navigation / Back bar */}
+      <div className="mb-4 flex items-center justify-between">
+        <button
+          onClick={() => {
+            if (typeof window !== "undefined") {
+              if (window.history.length > 1) {
+                window.history.back();
+              } else {
+                window.location.href = "/console";
+              }
+            }
+          }}
+          className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3.5 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-50 transition shadow-xs"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          <span>Back</span>
+        </button>
+        <Link
+          href="/console"
+          className="text-xs font-semibold text-slate-500 hover:text-indigo-600 transition"
+        >
+          Admin Console →
+        </Link>
+      </div>
+
       {/* Event Header Banner */}
       {ev && (
         <div className={`overflow-hidden rounded-3xl bg-gradient-to-r ${ev.bannerGradient || "from-indigo-600 to-purple-600"} p-8 text-white shadow-sm`}>

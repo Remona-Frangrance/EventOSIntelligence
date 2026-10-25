@@ -1930,7 +1930,7 @@ ${r.organizerNotes}
 
                   {ev && (
                     <Link
-                      href={`/register/${ev.id}`}
+                      href={`/register/${ev.id}?tab=team`}
                       className="flex items-center gap-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white px-3.5 py-2 text-xs font-semibold shadow-xs transition"
                     >
                       <Plus className="h-3.5 w-3.5" />

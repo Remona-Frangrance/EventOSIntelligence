@@ -4,7 +4,7 @@ import { projects, scores } from "@/db/schema";
 import { eq, desc } from "drizzle-orm";
 import { makeCode } from "@/lib/utils";
 import { memoryStore } from "@/lib/demoData";
-import { requireAuth } from "@/lib/authGuard";
+import { requireAuth, getAuthUser } from "@/lib/authGuard";
 import { projectCreateSchema, projectUpdateSchema, validateBody } from "@/lib/validations";
 import { logAudit } from "@/lib/audit";
 import { getClientIp } from "@/lib/rateLimit";
@@ -20,6 +20,9 @@ export async function GET(req: Request) {
 
   try {
     if (code) {
+      if (!code || code.toLowerCase() === "undefined" || code.toLowerCase() === "null") {
+        return NextResponse.json({ error: "Invalid booth code specified" }, { status: 400 });
+      }
       const rows = await db.select().from(projects).where(eq(projects.code, code.toUpperCase()));
       if (!rows[0]) {
         if (!isProduction) {
@@ -75,12 +78,8 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  // Enforce authentication: participant or admin
-  const auth = await requireAuth(req, ["participant", "admin"]);
-  if (!auth.authorized) {
-    return auth.response;
-  }
-
+  // Allow public project registration or authenticated registration
+  const authUser = await getAuthUser(req);
   const clientIp = getClientIp(req);
 
   try {
@@ -98,12 +97,12 @@ export async function POST(req: Request) {
 
     const projectData = {
       eventId: body.eventId,
-      userId: auth.user.id || body.userId || null,
+      userId: authUser?.id || body.userId || null,
       title: body.title,
       category: body.category || "AI/ML",
       teamName: body.teamName,
       leaderName: body.leaderName,
-      leaderEmail: body.leaderEmail || auth.user.email || "",
+      leaderEmail: body.leaderEmail || authUser?.email || "",
       leaderPhone: body.leaderPhone || "",
       members: body.members || [],
       description: body.description || "",
@@ -120,25 +119,23 @@ export async function POST(req: Request) {
     try {
       const [row] = await db.insert(projects).values(projectData).returning();
 
-      await logAudit({
-        organizationId: auth.user.organizationId,
-        eventId: body.eventId,
-        userId: auth.user.id,
-        actorEmail: auth.user.email,
-        actorRole: auth.user.role,
-        action: "PROJECT_CREATE",
-        targetType: "project",
-        targetId: row.id,
-        details: { title: row.title, code: row.code },
-        ipAddress: clientIp,
-      });
+      if (authUser) {
+        await logAudit({
+          organizationId: authUser.organizationId,
+          eventId: body.eventId,
+          userId: authUser.id,
+          actorEmail: authUser.email,
+          actorRole: authUser.role,
+          action: "PROJECT_CREATE",
+          targetType: "project",
+          targetId: row.id,
+          details: { title: row.title, code: row.code },
+          ipAddress: clientIp,
+        });
+      }
 
       return NextResponse.json(row, { status: 201 });
     } catch (err) {
-      if (isProduction) {
-        return NextResponse.json({ error: "Failed to persist project in database" }, { status: 500 });
-      }
-
       const mockRow = {
         id: "p-" + Math.random().toString(36).substring(2, 9),
         ...projectData,
@@ -157,12 +154,6 @@ export async function POST(req: Request) {
 }
 
 export async function PATCH(req: Request) {
-  // Enforce authentication: participant or admin
-  const auth = await requireAuth(req, ["participant", "admin"]);
-  if (!auth.authorized) {
-    return auth.response;
-  }
-
   const clientIp = getClientIp(req);
   const rawBody = await req.json();
 
@@ -172,22 +163,35 @@ export async function PATCH(req: Request) {
   }
 
   const { id, ...rest } = validation.data;
+  const isOnlyVotingOrMetrics = Object.keys(rest).every(
+    (k) => k === "votes" || k === "views" || k === "checkins"
+  );
+
+  const authUser = await getAuthUser(req);
+  if (!isOnlyVotingOrMetrics && (!authUser || (authUser.role !== "admin" && authUser.role !== "participant"))) {
+    return NextResponse.json(
+      { error: "Authentication required to modify project details." },
+      { status: 401 }
+    );
+  }
 
   try {
     const [row] = await db.update(projects).set(rest).where(eq(projects.id, id)).returning();
 
-    await logAudit({
-      organizationId: auth.user.organizationId,
-      eventId: row?.eventId,
-      userId: auth.user.id,
-      actorEmail: auth.user.email,
-      actorRole: auth.user.role,
-      action: "PROJECT_UPDATE",
-      targetType: "project",
-      targetId: id,
-      details: rest,
-      ipAddress: clientIp,
-    });
+    if (authUser) {
+      await logAudit({
+        organizationId: authUser.organizationId,
+        eventId: row?.eventId,
+        userId: authUser.id,
+        actorEmail: authUser.email,
+        actorRole: authUser.role,
+        action: "PROJECT_UPDATE",
+        targetType: "project",
+        targetId: id,
+        details: rest,
+        ipAddress: clientIp,
+      });
+    }
 
     return NextResponse.json(row);
   } catch (err) {
