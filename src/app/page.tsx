@@ -70,10 +70,10 @@ export default function LandingPage() {
           {/* Two CTAs */}
           <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
             <Link
-              href="/console"
+              href="/register"
               className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-6 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-600"
             >
-              <span>{t("ctaExplore")}</span>
+              <span>Register</span>
               <ArrowRight className="h-4 w-4" />
             </Link>
 
