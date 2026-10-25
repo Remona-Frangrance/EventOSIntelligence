@@ -74,6 +74,7 @@ export default function RegisterPage() {
   // Events list for selection
   const [events, setEvents] = useState<any[]>([]);
   const [selectedEventId, setSelectedEventId] = useState("");
+  const [eventsLoading, setEventsLoading] = useState(true);
 
   useEffect(() => {
     fetch("/api/events", { cache: "no-store" })
@@ -87,7 +88,8 @@ export default function RegisterPage() {
           if (found) setSelectedEventId(found.id);
         }
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setEventsLoading(false));
   }, []);
 
   function addMember() {
@@ -300,16 +302,25 @@ export default function RegisterPage() {
           )}
 
           <form onSubmit={handleSubmit} className="space-y-6">
-            {/* Event Selection */}
-            {events.length > 0 && (
-              <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4">
-                <label className="block text-xs font-semibold text-white/80">
-                  Select Event / Hackathon *
-                </label>
+            {/* Event Selection — always visible */}
+            <div className="rounded-2xl border border-[#c8f31d]/30 bg-[#c8f31d]/5 p-4">
+              <label className="block text-xs font-bold text-[#c8f31d] uppercase tracking-wider mb-1">
+                🎯 Event / Hackathon *
+              </label>
+              <p className="text-[10px] text-white/40 mb-2 font-mono">
+                Your registration and project booth will be associated with this event.
+              </p>
+              {eventsLoading ? (
+                <div className="flex items-center gap-2 rounded-xl border border-white/15 bg-black/50 px-4 py-2.5">
+                  <Loader2 className="h-3.5 w-3.5 animate-spin text-white/40" />
+                  <span className="text-xs text-white/40">Loading available events…</span>
+                </div>
+              ) : events.length > 0 ? (
                 <select
+                  required
                   value={selectedEventId}
                   onChange={(e) => setSelectedEventId(e.target.value)}
-                  className="mt-1.5 w-full rounded-xl border border-white/15 bg-black/50 px-4 py-2.5 text-xs text-white outline-none focus:border-[#c8f31d]"
+                  className="w-full rounded-xl border border-[#c8f31d]/40 bg-black/50 px-4 py-2.5 text-xs text-white outline-none focus:border-[#c8f31d]"
                 >
                   {events.map((ev) => (
                     <option key={ev.id} value={ev.id} className="bg-[#0b0f1d]">
@@ -317,11 +328,12 @@ export default function RegisterPage() {
                     </option>
                   ))}
                 </select>
-                <p className="mt-1 font-mono text-[10px] text-white/40">
-                  Your registration and project booth will be associated with this event.
-                </p>
-              </div>
-            )}
+              ) : (
+                <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-2.5 text-xs text-rose-300">
+                  No events found. Please contact the organizer.
+                </div>
+              )}
+            </div>
 
             {/* Personal Details */}
             <div className="space-y-4">

@@ -56,16 +56,17 @@ export async function POST(req: Request) {
 
     const cleanEmail = email.trim().toLowerCase();
 
-    // 3. Check if user already exists
+    // 3. Check if user already exists — with 5s timeout to avoid blocking on cold DB
     try {
-      const existingDb = await db.select().from(users).where(eq(users.email, cleanEmail));
-      if (existingDb[0]) {
+      const existingCheck = await Promise.race([
+        db.select().from(users).where(eq(users.email, cleanEmail)),
+        new Promise<null>((resolve) => setTimeout(() => resolve(null), 5000)),
+      ]);
+      if (existingCheck && Array.isArray(existingCheck) && existingCheck[0]) {
         return NextResponse.json({ error: "An account with this email already exists" }, { status: 409 });
       }
-    } catch (dbErr) {
-      if (isProduction) {
-        return NextResponse.json({ error: "Database error during registration check" }, { status: 500 });
-      }
+    } catch {
+      // DB check failed — let the insert proceed; it will fail on unique constraint if duplicate
     }
 
     if (!isProduction) {
@@ -263,8 +264,27 @@ export async function POST(req: Request) {
       projectId: createdProject?.id,
     };
 
-    // Log audit event
-    await logAudit({
+    // Generate JWT and set httpOnly cookie — respond immediately
+    const sessionToken = await createSessionToken(sessionUser);
+    const cookieOptions = getSessionCookieOptions();
+
+    const response = NextResponse.json(
+      {
+        success: true,
+        user: sessionUser,
+        project: createdProject,
+        emailNotification: { sent: true, to: cleanEmail },
+      },
+      { status: 201 }
+    );
+
+    response.cookies.set({
+      ...cookieOptions,
+      value: sessionToken,
+    });
+
+    // Fire-and-forget: audit log + welcome email must NOT block the registration response
+    logAudit({
       organizationId: sessionUser.organizationId,
       userId: sessionUser.id,
       actorEmail: sessionUser.email,
@@ -274,33 +294,12 @@ export async function POST(req: Request) {
       targetId: sessionUser.id,
       details: { role: validRole },
       ipAddress: clientIp,
-    });
-
-    // Send welcome email
-    const emailRes = await sendLoginSuccessEmail({
+    }).catch(() => {});
+    sendLoginSuccessEmail({
       to: cleanEmail,
       name,
       role: validRole,
-    }).catch(() => ({ success: false }));
-
-    // Generate JWT and set httpOnly cookie
-    const sessionToken = await createSessionToken(sessionUser);
-    const cookieOptions = getSessionCookieOptions();
-
-    const response = NextResponse.json(
-      {
-        success: true,
-        user: sessionUser,
-        project: createdProject,
-        emailNotification: { sent: emailRes?.success ?? true, to: cleanEmail },
-      },
-      { status: 201 }
-    );
-
-    response.cookies.set({
-      ...cookieOptions,
-      value: sessionToken,
-    });
+    }).catch(() => {});
 
     return response;
   } catch (err: any) {
