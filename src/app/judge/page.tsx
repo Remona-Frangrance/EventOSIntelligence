@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { useAuth } from "@/context/AuthContext";
 import {
@@ -51,8 +52,10 @@ type Project = {
 
 type Criterion = { key: string; label: string; max: number; weight: number };
 
-export default function JudgePage() {
-  const { user, loginJudge } = useAuth();
+function JudgePage() {
+  const { user, loginJudge, logout } = useAuth();
+  const searchParams = useSearchParams();
+  const isUnauthorized = searchParams.get("unauthorized") === "true";
 
   const [code, setCode] = useState("");
   const [judge, setJudge] = useState<Judge | null>(null);
@@ -200,6 +203,31 @@ export default function JudgePage() {
 
   return (
     <main className="relative min-h-screen px-4 pb-28 pt-28">
+      {/* Unauthorized Access Banner */}
+      {isUnauthorized && (
+        <div className="fixed top-20 left-1/2 z-50 w-full max-w-2xl -translate-x-1/2 px-4">
+          <div className="flex items-start gap-3 rounded-2xl border border-rose-200 bg-rose-50 p-4 shadow-xl">
+            <div className="mt-0.5 grid h-8 w-8 shrink-0 place-items-center rounded-xl bg-rose-100">
+              <AlertCircle className="h-4 w-4 text-rose-600" />
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="text-sm font-bold text-rose-900">Access Denied — Wrong Account</p>
+              <p className="mt-0.5 text-xs text-rose-700">
+                You&apos;re currently signed in as a <strong>Judge</strong> ({user?.email}). The{" "}
+                <strong>Admin Console</strong> requires an <strong>Admin</strong> account.
+                Please log out and sign in with your admin credentials.
+              </p>
+            </div>
+            <button
+              onClick={() => logout()}
+              className="shrink-0 rounded-xl bg-rose-600 px-3 py-1.5 text-xs font-bold text-white hover:bg-rose-700 transition"
+            >
+              Log Out &amp; Switch
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="mx-auto max-w-7xl">
         {/* Top Header & Judge Switcher */}
         <div className="flex flex-col gap-4 border-b border-slate-200 pb-6">
@@ -638,5 +666,17 @@ export default function JudgePage() {
         </div>
       </div>
     </main>
+  );
+}
+
+import { Suspense } from "react";
+
+const JudgePageInner = JudgePage;
+
+export default function JudgePageWrapper() {
+  return (
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center text-slate-500 text-sm">Loading jury portal…</div>}>
+      <JudgePageInner />
+    </Suspense>
   );
 }
