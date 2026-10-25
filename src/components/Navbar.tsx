@@ -349,10 +349,10 @@ export default function Navbar() {
                   </Link>
 
                   <Link
-                    href="/console"
+                    href="/register"
                     className="rounded-xl bg-indigo-600 px-4 py-2 text-xs font-semibold text-white shadow-xs hover:bg-indigo-700 transition"
                   >
-                    Explore Platform
+                    Register
                   </Link>
                 </div>
               )}
