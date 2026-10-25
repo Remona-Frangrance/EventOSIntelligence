@@ -11,18 +11,29 @@ export async function GET(req: Request) {
   // 1. Try server session from httpOnly cookie first (Highest Priority)
   const sessionUser = await getAuthUser(req);
   if (sessionUser) {
+    // Attempt DB re-validation with a 5-second timeout to avoid hanging on slow cold-starts.
+    // If it times out or fails, we trust the already-verified JWT session data.
     try {
-      const dbUsers = await db.select().from(users).where(eq(users.id, sessionUser.id));
-      if (dbUsers[0]) {
-        const u = dbUsers[0];
+      const dbResult = await Promise.race([
+        db.select().from(users).where(eq(users.id, sessionUser.id)),
+        new Promise<null>((resolve) => setTimeout(() => resolve(null), 5000)),
+      ]);
+
+      if (dbResult && Array.isArray(dbResult) && dbResult[0]) {
+        const u = dbResult[0];
         // Fetch project ID if participant
         let projectId = sessionUser.projectId;
         if (!projectId && u.role === "participant") {
-          const prj = await db
-            .select({ id: projects.id })
-            .from(projects)
-            .where(or(eq(projects.userId, u.id), eq(projects.leaderEmail, u.email)));
-          if (prj[0]) projectId = prj[0].id;
+          try {
+            const prj = await Promise.race([
+              db
+                .select({ id: projects.id })
+                .from(projects)
+                .where(or(eq(projects.userId, u.id), eq(projects.leaderEmail, u.email))),
+              new Promise<null>((resolve) => setTimeout(() => resolve(null), 3000)),
+            ]);
+            if (prj && Array.isArray(prj) && prj[0]) projectId = prj[0].id;
+          } catch {}
         }
 
         return NextResponse.json({
@@ -44,7 +55,7 @@ export async function GET(req: Request) {
       }
     } catch {}
 
-    // If DB check failed or in-memory judge
+    // DB check failed, timed out, or user not found — fall back to trusted JWT session
     return NextResponse.json({
       authenticated: true,
       user: sessionUser,

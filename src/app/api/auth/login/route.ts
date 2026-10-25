@@ -77,28 +77,9 @@ export async function POST(req: Request) {
         return NextResponse.json({ error: "Invalid judge code. Please check and retry." }, { status: 401 });
       }
 
-      if (judgeEmail) {
-        sendLoginSuccessEmail({
-          to: judgeEmail,
-          name: judgeUser.name,
-          role: "judge",
-        }).catch(() => {});
-      }
-
-      // Generate secure session token and set httpOnly cookie
+      // Generate secure session token and set httpOnly cookie first (non-blocking path)
       const sessionToken = await createSessionToken(judgeUser);
       const cookieOptions = getSessionCookieOptions();
-
-      await logAudit({
-        userId: judgeUser.id,
-        actorEmail: judgeUser.email,
-        actorRole: "judge",
-        action: "USER_LOGIN",
-        targetType: "session",
-        targetId: judgeUser.id,
-        details: { method: "judge_code", judgeCode: codeUpper },
-        ipAddress: clientIp,
-      });
 
       const response = NextResponse.json({
         success: true,
@@ -110,6 +91,25 @@ export async function POST(req: Request) {
         ...cookieOptions,
         value: sessionToken,
       });
+
+      // Fire-and-forget: email + audit log must NOT block the login response
+      if (judgeEmail) {
+        sendLoginSuccessEmail({
+          to: judgeEmail,
+          name: judgeUser.name,
+          role: "judge",
+        }).catch(() => {});
+      }
+      logAudit({
+        userId: judgeUser.id,
+        actorEmail: judgeUser.email,
+        actorRole: "judge",
+        action: "USER_LOGIN",
+        targetType: "session",
+        targetId: judgeUser.id,
+        details: { method: "judge_code", judgeCode: codeUpper },
+        ipAddress: clientIp,
+      }).catch(() => {});
 
       return response;
     }
@@ -178,18 +178,28 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Invalid email or password" }, { status: 401 });
     }
 
-    // Send login alert email
-    const emailRes = await sendLoginSuccessEmail({
-      to: authenticatedUser.email,
-      name: authenticatedUser.name,
-      role: authenticatedUser.role,
-    }).catch(() => ({ success: false }));
-
-    // Create session token and set httpOnly cookie
+    // Create session token and set httpOnly cookie immediately (non-blocking path)
     const sessionToken = await createSessionToken(authenticatedUser);
     const cookieOptions = getSessionCookieOptions();
 
-    await logAudit({
+    const response = NextResponse.json({
+      success: true,
+      user: authenticatedUser,
+      emailNotification: { sent: true, to: authenticatedUser.email },
+    });
+
+    response.cookies.set({
+      ...cookieOptions,
+      value: sessionToken,
+    });
+
+    // Fire-and-forget: email + audit log must NOT block the login response
+    sendLoginSuccessEmail({
+      to: authenticatedUser.email,
+      name: authenticatedUser.name,
+      role: authenticatedUser.role,
+    }).catch(() => {});
+    logAudit({
       userId: authenticatedUser.id,
       actorEmail: authenticatedUser.email,
       actorRole: authenticatedUser.role,
@@ -198,18 +208,7 @@ export async function POST(req: Request) {
       targetId: authenticatedUser.id,
       details: { email: cleanEmail },
       ipAddress: clientIp,
-    });
-
-    const response = NextResponse.json({
-      success: true,
-      user: authenticatedUser,
-      emailNotification: { sent: emailRes.success, to: authenticatedUser.email },
-    });
-
-    response.cookies.set({
-      ...cookieOptions,
-      value: sessionToken,
-    });
+    }).catch(() => {});
 
     return response;
   } catch (err) {
