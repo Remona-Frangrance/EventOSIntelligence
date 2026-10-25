@@ -7,6 +7,7 @@ import {
   boolean,
   jsonb,
   varchar,
+  index,
 } from "drizzle-orm/pg-core";
 
 export const organizations = pgTable("organizations", {
@@ -247,5 +248,48 @@ export const apiKeys = pgTable("api_keys", {
   status: varchar("status", { length: 20 }).notNull().default("active"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
+
+export const floorPlans = pgTable(
+  "floor_plans",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    eventId: uuid("event_id").notNull().references(() => events.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    description: text("description").notNull().default(""),
+    isDefault: boolean("is_default").notNull().default(false),
+    status: varchar("status", { length: 20 }).notNull().default("active"), // 'active' | 'archived'
+    gridWidth: integer("grid_width").notNull().default(20),
+    gridHeight: integer("grid_height").notNull().default(15),
+    walls: jsonb("walls").notNull().default([]), // [{ id, x1, y1, x2, y2, thickness? }]
+    openings: jsonb("openings").notNull().default([]), // [{ id, x, y, width, height, type, label }]
+    booths: jsonb("booths").notNull().default([]), // [{ id, label, x, y, width, height, projectId?, boothNo?, color? }]
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (table) => [
+    index("floor_plans_event_id_idx").on(table.eventId),
+  ]
+);
+
+export const floorTemplates = pgTable(
+  "floor_templates",
+  {
+    id: uuid("id").defaultRandom().primaryKey(),
+    organizationId: uuid("organization_id").notNull().references(() => organizations.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    description: text("description").notNull().default(""),
+    gridWidth: integer("grid_width").notNull().default(20),
+    gridHeight: integer("grid_height").notNull().default(15),
+    walls: jsonb("walls").notNull().default([]),
+    openings: jsonb("openings").notNull().default([]),
+    booths: jsonb("booths").notNull().default([]), // Clean layout: label, x, y, width, height (NO project or visitor data!)
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (table) => [
+    index("floor_templates_org_id_idx").on(table.organizationId),
+  ]
+);
+
 
 

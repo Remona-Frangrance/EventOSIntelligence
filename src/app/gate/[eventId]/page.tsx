@@ -99,6 +99,7 @@ export default function GateCheckinPage() {
       const res = await fetch("/api/visitors", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: "include", // Required: saves the httpOnly session cookie the server sets
         body: JSON.stringify({
           eventId: eventData?.id || eventId,
           name: name.trim(),
@@ -129,10 +130,10 @@ export default function GateCheckinPage() {
 
       setCheckedInPass({ name: visitor.name, code: visitor.code });
 
-      // Fast redirect to personalized interest feed
+      // Give visitor time to see their pass code, then redirect to personalized feed
       setTimeout(() => {
         router.push("/visitor");
-      }, 1400);
+      }, 3500);
     } catch (err: any) {
       setError(err.message || "Failed to check in. Please try again.");
     } finally {
@@ -143,29 +144,51 @@ export default function GateCheckinPage() {
   if (checkedInPass) {
     return (
       <main className="relative flex min-h-screen items-center justify-center px-4 py-20 text-center text-white">
-        <div className="glass-strong mx-auto w-full max-w-md rounded-3xl border border-emerald-400/40 bg-emerald-500/[0.08] p-8 shadow-[0_0_50px_rgba(52,211,153,0.2)]">
+        {/* Glow */}
+        <div className="pointer-events-none absolute inset-0 overflow-hidden">
+          <div className="absolute left-1/2 top-1/4 h-[400px] w-[600px] -translate-x-1/2 rounded-full bg-emerald-500/20 blur-[130px]" />
+        </div>
+
+        <div className="relative glass-strong mx-auto w-full max-w-sm rounded-3xl border border-emerald-400/40 bg-emerald-500/[0.08] p-8 shadow-[0_0_50px_rgba(52,211,153,0.2)]">
           <div className="mx-auto grid h-20 w-20 place-items-center rounded-3xl bg-emerald-400 text-black shadow-[0_0_30px_rgba(52,211,153,0.6)]">
             <CheckCircle2 className="h-10 w-10 animate-bounce" />
           </div>
 
-          <h2 className="font-display mt-5 text-3xl font-extrabold text-white">
-            You&apos;re Checked In!
+          <h2 className="font-display mt-5 text-2xl font-extrabold text-white">
+            You&apos;re Checked In! 🎉
           </h2>
-          <p className="mt-2 text-sm text-white/70">
-            Welcome to the event, <b className="text-emerald-300">{checkedInPass.name}</b>.
+          <p className="mt-1.5 text-sm text-white/70">
+            Welcome, <b className="text-emerald-300">{checkedInPass.name}</b>!
           </p>
 
+          {/* Pass Code */}
           <div className="mt-5 rounded-2xl border border-white/10 bg-black/50 p-4 font-mono">
-            <span className="text-[10px] uppercase tracking-widest text-white/40 block">
-              Admission Pass Code
+            <span className="text-[10px] uppercase tracking-widest text-white/40 block mb-1">
+              Your Admission Pass Code
             </span>
-            <span className="text-xl font-bold text-[#c8f31d]">
+            <span className="text-2xl font-extrabold tracking-widest text-[#c8f31d]">
               {checkedInPass.code}
             </span>
+            <p className="mt-2 text-[10px] text-white/30">
+              Show this code at any scanner terminal to check-in
+            </p>
           </div>
 
-          <p className="mt-5 text-xs text-white/50 animate-pulse">
-            Loading your personalized expo booth feed…
+          {/* QR Code for the pass */}
+          <div className="mt-4 flex justify-center">
+            <div className="rounded-2xl border border-white/10 bg-white p-3 shadow-lg">
+              <img
+                src={`https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(checkedInPass.code)}&bgcolor=ffffff&color=000000&qzone=1`}
+                alt={`QR Code for ${checkedInPass.code}`}
+                width={160}
+                height={160}
+                className="rounded-lg"
+              />
+            </div>
+          </div>
+
+          <p className="mt-4 text-xs text-white/40 animate-pulse">
+            Taking you to your personalized booth feed in a moment…
           </p>
         </div>
       </main>

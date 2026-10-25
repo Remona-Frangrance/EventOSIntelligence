@@ -87,7 +87,7 @@ export default function CheckinPage() {
 
   // Load events and pick event from URL query param if present
   useEffect(() => {
-    fetch("/api/events")
+    fetch("/api/events", { cache: "no-store" })
       .then((r) => r.json())
       .then((d) => {
         if (!Array.isArray(d)) return;

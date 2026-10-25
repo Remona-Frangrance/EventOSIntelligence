@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db";
-import { events, projects, visitors, scores, scans, organizations } from "@/db/schema";
-import { desc, eq, count } from "drizzle-orm";
+import { events, projects, visitors, scores, scans, organizations, floorPlans, floorTemplates } from "@/db/schema";
+import { desc, eq, count, and } from "drizzle-orm";
 import { memoryStore } from "@/lib/demoData";
 import { requireAuth } from "@/lib/authGuard";
 import { eventCreateSchema, validateBody } from "@/lib/validations";
@@ -9,6 +9,9 @@ import { logAudit } from "@/lib/audit";
 import { getClientIp } from "@/lib/rateLimit";
 
 const isProduction = process.env.NODE_ENV === "production";
+
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
@@ -26,15 +29,28 @@ export async function GET(req: Request) {
       return NextResponse.json([]);
     }
 
-    const withStats = await Promise.all(
-      all.map(async (e) => {
-        const [p] = await db.select({ c: count() }).from(projects).where(eq(projects.eventId, e.id));
-        const [v] = await db.select({ c: count() }).from(visitors).where(eq(visitors.eventId, e.id));
-        const [s] = await db.select({ c: count() }).from(scores).where(eq(scores.eventId, e.id));
-        const [sc] = await db.select({ c: count() }).from(scans).where(eq(scans.eventId, e.id));
-        return { ...e, stats: { projects: p?.c ?? 0, visitors: v?.c ?? 0, scores: s?.c ?? 0, scans: sc?.c ?? 0 } };
-      })
-    );
+    // Batch all 4 COUNT queries at once instead of N+1 per event
+    const [projectCounts, visitorCounts, scoreCounts, scanCounts] = await Promise.all([
+      db.select({ eventId: projects.eventId, c: count() }).from(projects).groupBy(projects.eventId),
+      db.select({ eventId: visitors.eventId, c: count() }).from(visitors).groupBy(visitors.eventId),
+      db.select({ eventId: scores.eventId, c: count() }).from(scores).groupBy(scores.eventId),
+      db.select({ eventId: scans.eventId, c: count() }).from(scans).groupBy(scans.eventId),
+    ]);
+
+    const projMap = Object.fromEntries(projectCounts.map((r) => [r.eventId, Number(r.c)]));
+    const visMap = Object.fromEntries(visitorCounts.map((r) => [r.eventId, Number(r.c)]));
+    const scoreMap = Object.fromEntries(scoreCounts.map((r) => [r.eventId, Number(r.c)]));
+    const scanMap = Object.fromEntries(scanCounts.map((r) => [r.eventId, Number(r.c)]));
+
+    const withStats = all.map((e) => ({
+      ...e,
+      stats: {
+        projects: projMap[e.id] ?? 0,
+        visitors: visMap[e.id] ?? 0,
+        scores: scoreMap[e.id] ?? 0,
+        scans: scanMap[e.id] ?? 0,
+      },
+    }));
 
     // Deduplicate events by trimmed, lowercase name to prevent duplicates in dropdowns
     const seenNames = new Set<string>();
@@ -58,7 +74,13 @@ export async function GET(req: Request) {
       return dateB - dateA;
     });
 
-    return NextResponse.json(deduplicated);
+    return NextResponse.json(deduplicated, {
+      headers: {
+        "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+        Pragma: "no-cache",
+        Expires: "0",
+      },
+    });
   } catch (err) {
     if (isProduction) {
       return NextResponse.json({ error: "Failed to retrieve events from database" }, { status: 500 });
@@ -139,8 +161,11 @@ export async function POST(req: Request) {
       registrationOpen: body.registrationOpen ?? true,
     };
 
+    let newEventRow: any = null;
+
     try {
       const [row] = await db.insert(events).values(eventData).returning();
+      newEventRow = row;
 
       await logAudit({
         organizationId: targetOrgId,
@@ -154,8 +179,6 @@ export async function POST(req: Request) {
         details: { name: row.name, slug: row.slug },
         ipAddress: clientIp,
       });
-
-      return NextResponse.json(row, { status: 201 });
     } catch (dbErr) {
       if (isProduction) {
         return NextResponse.json({ error: "Failed to persist event to database" }, { status: 500 });
@@ -170,8 +193,126 @@ export async function POST(req: Request) {
         stats: { projects: 0, visitors: 0, scores: 0, scans: 0 },
       };
       memoryStore.addEvent(mockRow);
-      return NextResponse.json(mockRow, { status: 201 });
+      newEventRow = mockRow;
     }
+
+    // REQUIREMENT: When an event is created, optionally offer "Start from template" or "Copy layout from a previous event".
+    // When copying, copy walls, openings, and booth positions, but clear the project assignments.
+    if (newEventRow && body.templateId) {
+      try {
+        let tpl: any = null;
+        try {
+          const tRows = await db.select().from(floorTemplates).where(eq(floorTemplates.id, body.templateId));
+          if (tRows.length > 0) tpl = tRows[0];
+        } catch {}
+
+        if (!tpl && !isProduction) {
+          tpl = memoryStore.getFloorTemplateById(body.templateId);
+        }
+
+        if (tpl) {
+          // Clear project assignments while preserving walls, openings, and booth coordinates
+          const cleanBooths = (tpl.booths || []).map((b: any) => ({
+            id: b.id || "b-" + Math.random().toString(36).substring(2, 7),
+            label: b.label || "Booth",
+            x: b.x,
+            y: b.y,
+            width: b.width || 1,
+            height: b.height || 1,
+            projectId: null, // CLEAR project assignments
+            boothNo: b.label,
+            color: b.color || "",
+          }));
+
+          const planData = {
+            eventId: newEventRow.id,
+            name: tpl.name || "Main Exhibition Hall",
+            description: tpl.description || "",
+            isDefault: true,
+            status: "active",
+            gridWidth: tpl.gridWidth || 20,
+            gridHeight: tpl.gridHeight || 15,
+            walls: tpl.walls || [],
+            openings: tpl.openings || [],
+            booths: cleanBooths,
+          };
+
+          try {
+            await db.insert(floorPlans).values(planData);
+          } catch {
+            if (!isProduction) {
+              memoryStore.addFloorPlan({
+                id: "fp-" + Math.random().toString(36).substring(2, 9),
+                ...planData,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+              });
+            }
+          }
+        }
+      } catch (copyErr) {
+        console.error("Failed to apply template floor plan:", copyErr);
+      }
+    } else if (newEventRow && body.copyFromEventId) {
+      try {
+        let prevPlans: any[] = [];
+        try {
+          prevPlans = await db
+            .select()
+            .from(floorPlans)
+            .where(and(eq(floorPlans.eventId, body.copyFromEventId), eq(floorPlans.status, "active")));
+        } catch {}
+
+        if (prevPlans.length === 0 && !isProduction) {
+          prevPlans = memoryStore.getFloorPlans(body.copyFromEventId);
+        }
+
+        for (const sp of prevPlans) {
+          // Copy walls, openings, and booth positions, but clear the project assignments.
+          const cleanBooths = (sp.booths || []).map((b: any) => ({
+            id: b.id || "b-" + Math.random().toString(36).substring(2, 7),
+            label: b.label || "Booth",
+            x: b.x,
+            y: b.y,
+            width: b.width || 1,
+            height: b.height || 1,
+            projectId: null, // CLEAR project assignments
+            boothNo: b.label,
+            color: b.color || "",
+          }));
+
+          const planData = {
+            eventId: newEventRow.id,
+            name: sp.name,
+            description: sp.description || "",
+            isDefault: sp.isDefault,
+            status: "active",
+            gridWidth: sp.gridWidth,
+            gridHeight: sp.gridHeight,
+            walls: sp.walls || [],
+            openings: sp.openings || [],
+            booths: cleanBooths,
+          };
+
+          try {
+            await db.insert(floorPlans).values(planData);
+          } catch {
+            if (!isProduction) {
+              memoryStore.addFloorPlan({
+                id: "fp-" + Math.random().toString(36).substring(2, 9),
+                ...planData,
+                createdAt: new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+              });
+            }
+          }
+        }
+      } catch (copyErr) {
+        console.error("Failed to copy previous event floor plans:", copyErr);
+      }
+    }
+
+    return NextResponse.json(newEventRow, { status: 201 });
   } catch (err: any) {
     return NextResponse.json({ error: err.message || "Failed to parse request" }, { status: 400 });
   }

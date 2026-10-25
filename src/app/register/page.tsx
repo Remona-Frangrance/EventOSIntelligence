@@ -76,7 +76,7 @@ export default function RegisterPage() {
   const [selectedEventId, setSelectedEventId] = useState("");
 
   useEffect(() => {
-    fetch("/api/events")
+    fetch("/api/events", { cache: "no-store" })
       .then((r) => r.json())
       .then((data) => {
         if (Array.isArray(data) && data.length > 0) {

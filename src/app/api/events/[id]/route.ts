@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db";
-import { events } from "@/db/schema";
+import { events, floorPlans } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { memoryStore } from "@/lib/demoData";
 import { requireAuth } from "@/lib/authGuard";
@@ -9,6 +9,9 @@ import { logAudit } from "@/lib/audit";
 import { getClientIp } from "@/lib/rateLimit";
 
 const isProduction = process.env.NODE_ENV === "production";
+
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
 
 export async function GET(_: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -55,6 +58,13 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
     const [row] = await db.update(events).set(updates).where(eq(events.id, id)).returning();
 
+    // If an event is archived, its floor plans are archived with it
+    if (updates.status === "archived") {
+      try {
+        await db.update(floorPlans).set({ status: "archived" }).where(eq(floorPlans.eventId, id));
+      } catch {}
+    }
+
     await logAudit({
       organizationId: row?.organizationId || auth.user.organizationId,
       eventId: id,
@@ -88,7 +98,11 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
   const clientIp = getClientIp(req);
 
   try {
-    await db.delete(events).where(eq(events.id, id));
+    // CRITICAL REQUIREMENT:
+    // If an event is deleted or archived, its floor plans are archived with it. Never hard-delete scan history.
+    // We soft-archive the event and its floor plans, preserving all scans and audit records intact.
+    await db.update(events).set({ status: "archived" }).where(eq(events.id, id));
+    await db.update(floorPlans).set({ status: "archived" }).where(eq(floorPlans.eventId, id));
 
     await logAudit({
       organizationId: auth.user.organizationId,
@@ -96,14 +110,16 @@ export async function DELETE(req: Request, { params }: { params: Promise<{ id: s
       userId: auth.user.id,
       actorEmail: auth.user.email,
       actorRole: auth.user.role,
-      action: "EVENT_DELETE",
+      action: "EVENT_ARCHIVE",
       targetType: "event",
       targetId: id,
+      details: { reason: "Event deleted/archived by admin; scan history preserved" },
       ipAddress: clientIp,
     });
 
-    return NextResponse.json({ ok: true, message: "Event deleted successfully" });
+    return NextResponse.json({ ok: true, message: "Event and floor plans archived successfully. Scan history preserved." });
   } catch (err) {
-    return NextResponse.json({ error: "Failed to delete event" }, { status: 500 });
+    return NextResponse.json({ error: "Failed to archive event" }, { status: 500 });
   }
 }
+

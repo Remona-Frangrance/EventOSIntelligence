@@ -22,6 +22,7 @@ import {
   Check,
   Layers,
 } from "lucide-react";
+import FloorPlanViewer from "@/components/FloorPlanViewer";
 
 const AVAILABLE_INTERESTS = [
   "AI/ML",
@@ -52,6 +53,7 @@ export default function VisitorPortal() {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeCategory, setActiveCategory] = useState("all");
   const [votedIds, setVotedIds] = useState<Record<string, boolean>>({});
+  const [activeView, setActiveView] = useState<"projects" | "floor_plan">("projects");
 
   // Feedback modal
   const [feedbackProject, setFeedbackProject] = useState<any | null>(null);
@@ -67,7 +69,7 @@ export default function VisitorPortal() {
   useEffect(() => {
     async function fetchEvents() {
       try {
-        const res = await fetch("/api/events");
+        const res = await fetch("/api/events", { cache: "no-store" });
         const list = await res.json();
         if (Array.isArray(list) && list.length > 0) {
           // Keep deduplicated, prominent events with priority to those with projects
@@ -341,7 +343,68 @@ export default function VisitorPortal() {
           </div>
         </div>
 
-        {/* Interests Selector Box */}
+        {/* View Switcher: Project Discovery vs Venue Floor Plan */}
+        <div className="mt-6 flex flex-wrap items-center gap-3 border-b border-white/10 pb-4">
+          <button
+            type="button"
+            onClick={() => setActiveView("projects")}
+            className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold transition ${
+              activeView === "projects"
+                ? "bg-indigo-600 text-white shadow-lg shadow-indigo-600/30 border border-indigo-400"
+                : "bg-slate-900/80 text-slate-400 hover:text-white border border-white/5"
+            }`}
+          >
+            <Compass className="h-4 w-4" />
+            <span>Project Discovery &amp; Recommendations</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setActiveView("floor_plan")}
+            className={`flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-bold transition ${
+              activeView === "floor_plan"
+                ? "bg-indigo-600 text-white shadow-lg shadow-indigo-600/30 border border-indigo-400"
+                : "bg-slate-900/80 text-slate-400 hover:text-white border border-white/5"
+            }`}
+          >
+            <MapPin className="h-4 w-4" />
+            <span>Interactive Venue Floor Plan</span>
+          </button>
+        </div>
+
+        {activeView === "floor_plan" ? (
+          <div className="mt-8 space-y-4">
+            <div className="rounded-3xl border border-white/10 bg-slate-900/90 p-6 md:p-8 backdrop-blur-xl shadow-xl">
+              <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <div className="flex items-center gap-2 text-indigo-400">
+                    <MapPin className="h-5 w-5" />
+                    <h2 className="font-display text-xl font-bold text-white">
+                      {selectedEvent?.name || "Event"} · Floor Navigation Map
+                    </h2>
+                  </div>
+                  <p className="text-xs text-slate-300 mt-1">
+                    Locate exhibition bays, explore startup stalls, and inspect live scan activity across halls.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <FloorPlanViewer
+              eventId={selectedEventId}
+              isAdmin={false}
+              onSelectProject={(pid) => {
+                const proj = allProjects.find((p) => p.id === pid);
+                if (proj) {
+                  setActiveView("projects");
+                  setSearchQuery(proj.title);
+                }
+              }}
+            />
+          </div>
+        ) : (
+          <div>
+            {/* Interests Selector Box */}
         <div className="mt-8 rounded-3xl border border-white/10 bg-slate-900/90 p-6 md:p-8 backdrop-blur-xl shadow-xl">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div>
@@ -623,6 +686,8 @@ export default function VisitorPortal() {
             </div>
           )}
         </div>
+      </div>
+    )}
 
         {/* Feedback / Cheers Modal */}
         {feedbackProject && (

@@ -43,7 +43,7 @@ function FeedbackPageContent() {
   useEffect(() => {
     async function initEvents() {
       try {
-        const res = await fetch("/api/events");
+        const res = await fetch("/api/events", { cache: "no-store" });
         const data = await res.json();
         if (Array.isArray(data) && data.length > 0) {
           setEvents(data);

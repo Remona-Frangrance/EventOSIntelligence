@@ -43,7 +43,7 @@ export const eventCreateSchema = z.object({
   city: z.string().min(1, "City is required"),
   startsAt: z.string().or(z.date()).optional(),
   endsAt: z.string().or(z.date()).optional(),
-  status: z.enum(["draft", "upcoming", "live", "completed", "ended"]).default("live"),
+  status: z.enum(["draft", "upcoming", "live", "completed", "ended", "archived"]).default("live"),
   bannerGradient: z.string().optional(),
   scoringCriteria: z
     .array(
@@ -58,9 +58,80 @@ export const eventCreateSchema = z.object({
   categories: z.array(z.string()).optional(),
   registrationOpen: z.boolean().optional().default(true),
   organizationId: z.string().uuid().optional(),
+  templateId: z.string().optional(),
+  copyFromEventId: z.string().optional(),
 });
 
 export const eventUpdateSchema = eventCreateSchema.partial();
+
+// --- Floor Plan & Template Schemas ---
+export const boothSchema = z.object({
+  id: z.string().min(1),
+  label: z.string().min(1),
+  x: z.number().int().min(0),
+  y: z.number().int().min(0),
+  width: z.number().int().min(1).default(1),
+  height: z.number().int().min(1).default(1),
+  projectId: z.string().nullable().optional(),
+  boothNo: z.string().optional(),
+  color: z.string().optional(),
+});
+
+export const wallSchema = z.object({
+  id: z.string().min(1),
+  x1: z.number().int().min(0),
+  y1: z.number().int().min(0),
+  x2: z.number().int().min(0),
+  y2: z.number().int().min(0),
+  thickness: z.number().optional().default(1),
+});
+
+export const openingSchema = z.object({
+  id: z.string().min(1),
+  x: z.number().int().min(0),
+  y: z.number().int().min(0),
+  width: z.number().int().min(1).default(1),
+  height: z.number().int().min(1).default(1),
+  type: z.enum(["door", "entrance", "exit", "emergency"]).default("entrance"),
+  label: z.string().optional().default("Entrance"),
+});
+
+export const floorPlanCreateSchema = z.object({
+  eventId: z.string().min(1, "Event ID is required"),
+  name: z.string().min(1, "Floor plan name is required"),
+  description: z.string().optional().default(""),
+  isDefault: z.boolean().optional().default(false),
+  gridWidth: z.number().int().min(5).max(100).optional().default(20),
+  gridHeight: z.number().int().min(5).max(100).optional().default(15),
+  walls: z.array(wallSchema).optional().default([]),
+  openings: z.array(openingSchema).optional().default([]),
+  booths: z.array(boothSchema).optional().default([]),
+  fromTemplateId: z.string().optional(),
+  copyFromPlanId: z.string().optional(),
+});
+
+export const floorPlanUpdateSchema = z.object({
+  name: z.string().min(1).optional(),
+  description: z.string().optional(),
+  isDefault: z.boolean().optional(),
+  status: z.enum(["active", "archived"]).optional(),
+  gridWidth: z.number().int().min(5).max(100).optional(),
+  gridHeight: z.number().int().min(5).max(100).optional(),
+  walls: z.array(wallSchema).optional(),
+  openings: z.array(openingSchema).optional(),
+  booths: z.array(boothSchema).optional(),
+});
+
+export const floorTemplateCreateSchema = z.object({
+  name: z.string().min(1, "Template name is required"),
+  description: z.string().optional().default(""),
+  sourcePlanId: z.string().optional(),
+  gridWidth: z.number().int().min(5).max(100).optional().default(20),
+  gridHeight: z.number().int().min(5).max(100).optional().default(15),
+  walls: z.array(wallSchema).optional().default([]),
+  openings: z.array(openingSchema).optional().default([]),
+  booths: z.array(boothSchema.omit({ projectId: true })).optional().default([]),
+});
 
 // --- Project Schemas ---
 export const projectCreateSchema = z.object({

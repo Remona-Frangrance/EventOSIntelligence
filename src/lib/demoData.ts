@@ -136,6 +136,36 @@ export type DemoFeedback = {
   createdAt: string;
 };
 
+export type DemoFloorPlan = {
+  id: string;
+  eventId: string;
+  name: string;
+  description: string;
+  isDefault: boolean;
+  status: string;
+  gridWidth: number;
+  gridHeight: number;
+  walls: any[];
+  openings: any[];
+  booths: any[];
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type DemoFloorTemplate = {
+  id: string;
+  organizationId: string;
+  name: string;
+  description: string;
+  gridWidth: number;
+  gridHeight: number;
+  walls: any[];
+  openings: any[];
+  booths: any[];
+  createdAt: string;
+  updatedAt: string;
+};
+
 const now = new Date();
 
 // PRE-SEEDED USERS ACROSS ALL 4 ROLES
@@ -699,6 +729,8 @@ const memoryScores: DemoScore[] = [];
 const memoryVisitors: DemoVisitor[] = [];
 const memoryCertificates: DemoCertificate[] = [];
 const memoryFeedbacks: DemoFeedback[] = [];
+const memoryFloorPlans: DemoFloorPlan[] = [];
+const memoryFloorTemplates: DemoFloorTemplate[] = [];
 
 const isProduction = process.env.NODE_ENV === "production";
 
@@ -711,6 +743,8 @@ export const memoryStore = {
     memoryVisitors.length = 0;
     memoryCertificates.length = 0;
     memoryFeedbacks.length = 0;
+    memoryFloorPlans.length = 0;
+    memoryFloorTemplates.length = 0;
   },
   // Users
   getUsers: () => (isProduction ? [] : memoryUsers),
@@ -843,5 +877,72 @@ export const memoryStore = {
   addFeedback: (fb: DemoFeedback) => {
     memoryFeedbacks.unshift(fb);
     return fb;
+  },
+
+  // Floor Plans
+  getFloorPlans: (eventId?: string) => {
+    if (isProduction) return [];
+    return eventId
+      ? memoryFloorPlans.filter((p) => p.eventId === eventId && p.status !== "archived")
+      : memoryFloorPlans.filter((p) => p.status !== "archived");
+  },
+  getFloorPlanById: (id: string) => {
+    if (isProduction) return undefined;
+    return memoryFloorPlans.find((p) => p.id === id);
+  },
+  addFloorPlan: (p: DemoFloorPlan) => {
+    if (p.isDefault) {
+      memoryFloorPlans.forEach((existing) => {
+        if (existing.eventId === p.eventId) existing.isDefault = false;
+      });
+    }
+    memoryFloorPlans.unshift(p);
+    return p;
+  },
+  updateFloorPlan: (id: string, updates: Partial<DemoFloorPlan>) => {
+    const idx = memoryFloorPlans.findIndex((p) => p.id === id);
+    if (idx >= 0) {
+      if (updates.isDefault) {
+        const evId = memoryFloorPlans[idx].eventId;
+        memoryFloorPlans.forEach((existing) => {
+          if (existing.eventId === evId) existing.isDefault = false;
+        });
+      }
+      memoryFloorPlans[idx] = { ...memoryFloorPlans[idx], ...updates, updatedAt: new Date().toISOString() };
+      return memoryFloorPlans[idx];
+    }
+    return null;
+  },
+  deleteFloorPlan: (id: string) => {
+    const idx = memoryFloorPlans.findIndex((p) => p.id === id);
+    if (idx >= 0) {
+      memoryFloorPlans[idx].status = "archived";
+      return true;
+    }
+    return false;
+  },
+
+  // Floor Templates
+  getFloorTemplates: (organizationId?: string) => {
+    if (isProduction) return [];
+    return organizationId
+      ? memoryFloorTemplates.filter((t) => t.organizationId === organizationId)
+      : memoryFloorTemplates;
+  },
+  getFloorTemplateById: (id: string) => {
+    if (isProduction) return undefined;
+    return memoryFloorTemplates.find((t) => t.id === id);
+  },
+  addFloorTemplate: (t: DemoFloorTemplate) => {
+    memoryFloorTemplates.unshift(t);
+    return t;
+  },
+  deleteFloorTemplate: (id: string) => {
+    const idx = memoryFloorTemplates.findIndex((t) => t.id === id);
+    if (idx >= 0) {
+      memoryFloorTemplates.splice(idx, 1);
+      return true;
+    }
+    return false;
   },
 };

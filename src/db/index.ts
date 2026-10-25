@@ -30,7 +30,11 @@ export const pool =
   new Pool({
     connectionString: databaseUrl,
     ssl: isCloud ? { rejectUnauthorized: false } : undefined,
+    // Transaction mode pooler (port 6543) multiplexes connections server-side,
+    // so a small local pool is ideal to avoid overwhelming the pooler.
+    max: isCloud ? 5 : 10,
     connectionTimeoutMillis: 8000,
+    idleTimeoutMillis: 30000,
   });
 
 if (process.env.NODE_ENV !== "production") {

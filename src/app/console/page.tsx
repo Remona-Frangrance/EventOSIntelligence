@@ -41,7 +41,9 @@ import {
   FileSpreadsheet,
   Copy,
   Ticket,
+  MapPin,
 } from "lucide-react";
+import FloorPlanViewer from "@/components/FloorPlanViewer";
 
 type Event = {
   id: string;
@@ -95,6 +97,7 @@ type ScoreRow = {
 
 const tabs = [
   { k: "overview", label: "Overview", icon: LayoutDashboard },
+  { k: "floor_plans", label: "Floor Plans", icon: MapPin },
   { k: "ai_insights", label: "AI Insights", icon: Sparkles },
   { k: "projects", label: "Projects", icon: FolderKanban },
   { k: "judges", label: "Judges + AI", icon: Gavel },
@@ -126,6 +129,10 @@ function ConsoleInner() {
   const [qrProject, setQrProject] = useState<Project | null>(null);
   const [showEventModal, setShowEventModal] = useState(false);
   const [creatingEvent, setCreatingEvent] = useState(false);
+  const [availableTemplates, setAvailableTemplates] = useState<{ id: string; name: string; description: string; booths: any[] }[]>([]);
+  const [layoutSource, setLayoutSource] = useState<"blank" | "template" | "copy">("blank");
+  const [selectedTemplateId, setSelectedTemplateId] = useState("");
+  const [selectedCopyEventId, setSelectedCopyEventId] = useState("");
   const [showJudgeModal, setShowJudgeModal] = useState(false);
   const [showCertModal, setShowCertModal] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -310,43 +317,73 @@ ${r.organizerNotes}
     setAuditLoading(false);
   }
 
-  const ev = useMemo(() => events.find((e) => e.id === eventId), [events, eventId]);
+  const ev = useMemo(() => {
+    if (!events.length) return null;
+    return events.find((e) => e.id === eventId) || events[0];
+  }, [events, eventId]);
 
-  async function loadEvents() {
-    const r = await fetch("/api/events");
-    const d = await r.json();
-    if (Array.isArray(d)) {
-      setEvents(d);
-      if (!eventId && d.length) setEventId(sp.get("event") || d[0].id);
+  async function loadEvents(preferredId?: string) {
+    try {
+      const r = await fetch(`/api/events?_t=${Date.now()}`, {
+        cache: "no-store",
+        headers: { "Cache-Control": "no-cache" },
+      });
+      const d = await r.json();
+      if (Array.isArray(d)) {
+        setEvents(d);
+        if (preferredId) {
+          setEventId(preferredId);
+          if (typeof window !== "undefined") {
+            window.history.replaceState(null, "", `/console?event=${preferredId}`);
+          }
+        } else if (!eventId && d.length) {
+          const initId = sp.get("event") || d[0].id;
+          setEventId(initId);
+        } else if (eventId && !d.some((item) => item.id === eventId) && d.length) {
+          setEventId(d[0].id);
+        }
+        return d;
+      }
+    } catch (err) {
+      console.error("Failed to load events", err);
     }
+    return [];
   }
 
   async function loadAll(id: string) {
     if (!id) return;
     setLoading(true);
-    const [p, j, b, s, v, c, f, a, ai, m] = await Promise.all([
-      fetch(`/api/projects?eventId=${id}`).then((r) => r.json()),
-      fetch(`/api/judges?eventId=${id}`).then((r) => r.json()),
-      fetch(`/api/leaderboard/${id}`).then((r) => r.json()),
-      fetch(`/api/scores?eventId=${id}`).then((r) => r.json()),
-      fetch(`/api/visitors?eventId=${id}`).then((r) => r.json()),
-      fetch(`/api/certificates?eventId=${id}`).then((r) => r.json()),
-      fetch(`/api/feedback?eventId=${id}`).then((r) => r.json()),
-      fetch(`/api/analytics/${id}`).then((r) => r.json()),
-      fetch(`/api/ai/summary/${id}`).then((r) => r.json()),
-      fetch(`/api/ai/match?eventId=${id}`).then((r) => r.json()),
+
+    // Phase 1: Load essential data needed for Overview tab first
+    const [p, j, b, a] = await Promise.all([
+      fetch(`/api/projects?eventId=${id}`).then((r) => r.json()).catch(() => []),
+      fetch(`/api/judges?eventId=${id}`).then((r) => r.json()).catch(() => []),
+      fetch(`/api/leaderboard/${id}`).then((r) => r.json()).catch(() => []),
+      fetch(`/api/analytics/${id}`).then((r) => r.json()).catch(() => null),
     ]);
     setProjects(p || []);
     setJudges(j || []);
     setBoard(b || []);
-    setScores(s || []);
-    setVisitors(v || []);
-    setCerts(c || []);
-    setFeedback(f || []);
     setAnalytics(a || null);
-    setAiSummary(ai || null);
-    setMatchMatrix(m?.matrix || []);
-    setLoading(false);
+    setLoading(false); // Show the UI immediately after essential data
+
+    // Phase 2: Load secondary data in background (non-blocking)
+    Promise.all([
+      fetch(`/api/scores?eventId=${id}`).then((r) => r.json()).catch(() => []),
+      fetch(`/api/visitors?eventId=${id}`).then((r) => r.json()).catch(() => []),
+      fetch(`/api/certificates?eventId=${id}`).then((r) => r.json()).catch(() => []),
+      fetch(`/api/feedback?eventId=${id}`).then((r) => r.json()).catch(() => []),
+      fetch(`/api/ai/summary/${id}`).then((r) => r.json()).catch(() => null),
+      fetch(`/api/ai/match?eventId=${id}`).then((r) => r.json()).catch(() => null),
+    ]).then(([s, v, c, f, ai, m]) => {
+      setScores(s || []);
+      setVisitors(v || []);
+      setCerts(c || []);
+      setFeedback(f || []);
+      setAiSummary(ai || null);
+      setMatchMatrix(m?.matrix || []);
+    }).catch(() => {});
+
     loadInsights(id);
     loadSponsors(id);
     loadOrders(id);
@@ -667,6 +704,28 @@ ${r.organizerNotes}
     }
   }
 
+  async function loadTemplates() {
+    try {
+      const res = await fetch("/api/floor-templates");
+      if (res.ok) {
+        const data = await res.json();
+        setAvailableTemplates(data || []);
+        if (data && data.length > 0 && !selectedTemplateId) {
+          setSelectedTemplateId(data[0].id);
+        }
+      }
+    } catch {}
+  }
+
+  useEffect(() => {
+    if (showEventModal) {
+      loadTemplates();
+      if (events.length > 0 && !selectedCopyEventId) {
+        setSelectedCopyEventId(events[0].id);
+      }
+    }
+  }, [showEventModal, events]);
+
   async function createEvent(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     if (creatingEvent) return;
@@ -686,6 +745,9 @@ ${r.organizerNotes}
         return;
       }
 
+      const templateId = layoutSource === "template" && selectedTemplateId ? selectedTemplateId : undefined;
+      const copyFromEventId = layoutSource === "copy" && selectedCopyEventId ? selectedCopyEventId : undefined;
+
       const r = await fetch("/api/events", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -703,14 +765,33 @@ ${r.organizerNotes}
             { key: "impact", label: "Impact & Viability", max: 25, weight: 1 },
             { key: "design", label: "UX & Presentation", max: 25, weight: 1 },
           ],
+          templateId,
+          copyFromEventId,
         }),
       });
       const d = await r.json();
-      setShowEventModal(false);
-      await loadEvents();
+
+      if (!r.ok || !d?.id) {
+        flash(d?.error || "Error creating event. Check parameters.");
+        setCreatingEvent(false);
+        return;
+      }
+
+      // Optimistically inject the new event so the dropdown and active pill update immediately
+      setEvents((prev) => [d, ...prev.filter((item) => item.id !== d.id)]);
       setEventId(d.id);
+      if (typeof window !== "undefined") {
+        window.history.replaceState(null, "", `/console?event=${d.id}`);
+      }
+
+      setShowEventModal(false);
+      setLayoutSource("blank");
       setShowGateQrModal(true);
       flash(`Event "${d.name}" created successfully! Entrance Gate QR code is ready.`);
+
+      // Sync backend event list and load telemetry for the new event
+      await loadEvents(d.id);
+      loadAll(d.id);
     } catch {
       flash("Error creating event. Check parameters.");
     } finally {
@@ -932,15 +1013,33 @@ ${r.organizerNotes}
         <div className="flex flex-wrap items-center gap-2.5">
           <select
             value={eventId}
-            onChange={(e) => setEventId(e.target.value)}
+            onChange={(e) => {
+              const newId = e.target.value;
+              setEventId(newId);
+              if (typeof window !== "undefined") {
+                window.history.replaceState(null, "", `/console?event=${newId}`);
+              }
+            }}
             className="rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-xs font-medium text-slate-800 outline-none focus:border-indigo-600 shadow-xs max-w-xs"
           >
+            {events.length === 0 && <option value="">Loading events…</option>}
             {events.map((e) => (
               <option key={e.id} value={e.id}>
                 {e.name}
               </option>
             ))}
           </select>
+
+          {/* Quick Access to Event Gate QR Standee */}
+          <button
+            type="button"
+            onClick={() => setShowGateQrModal(true)}
+            className="flex items-center gap-1.5 rounded-xl border border-indigo-200 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 px-3.5 py-2.5 text-xs font-semibold shadow-xs transition"
+            title="Display Entrance Gate QR Code & Printable Standee"
+          >
+            <QrIcon className="h-4 w-4 text-indigo-600" />
+            <span>Event QR Pass</span>
+          </button>
 
           <Link
             href={`/checkin?eventId=${eventId}`}
@@ -959,9 +1058,12 @@ ${r.organizerNotes}
           </button>
 
           <button
-            onClick={() => eventId && loadAll(eventId)}
+            onClick={async () => {
+              await loadEvents(eventId);
+              if (eventId) loadAll(eventId);
+            }}
             className="rounded-xl border border-slate-200 bg-white p-2.5 text-slate-600 hover:bg-slate-50 hover:text-slate-900 shadow-xs transition"
-            title="Refresh Live Data"
+            title="Refresh Live Data & Event List"
           >
             <RefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
           </button>
@@ -1251,6 +1353,20 @@ ${r.organizerNotes}
                 </div>
               </div>
             </div>
+          )}
+
+          {/* TAB: FLOOR PLANS */}
+          {tab === "floor_plans" && (
+            <FloorPlanViewer
+              eventId={eventId}
+              isAdmin={true}
+              onSelectProject={(pid) => {
+                const found = projects.find((p) => p.id === pid);
+                if (found) {
+                  setTab("projects");
+                }
+              }}
+            />
           )}
 
           {/* TAB: AI INSIGHTS */}
@@ -3075,6 +3191,106 @@ ${r.organizerNotes}
                 className="inp resize-none"
               />
             </Field>
+
+            {/* Floor Plan Layout Setup */}
+            <div className="rounded-2xl border border-indigo-100 bg-indigo-50/50 p-3.5 space-y-2.5">
+              <div className="flex items-center gap-1.5 text-xs font-semibold text-indigo-950">
+                <MapPin className="h-4 w-4 text-indigo-600" />
+                <span>Floor Plan Layout Setup</span>
+              </div>
+              <p className="text-[11px] text-slate-500">
+                Optionally initialize this event with an architectural floor plan:
+              </p>
+
+              <div className="grid grid-cols-3 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setLayoutSource("blank")}
+                  className={`rounded-xl border p-2 text-center text-xs font-medium transition ${
+                    layoutSource === "blank"
+                      ? "border-indigo-600 bg-indigo-600 text-white shadow-xs"
+                      : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                  }`}
+                >
+                  Start Blank
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setLayoutSource("template")}
+                  className={`rounded-xl border p-2 text-center text-xs font-medium transition ${
+                    layoutSource === "template"
+                      ? "border-indigo-600 bg-indigo-600 text-white shadow-xs"
+                      : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                  }`}
+                >
+                  From Template
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setLayoutSource("copy")}
+                  className={`rounded-xl border p-2 text-center text-xs font-medium transition ${
+                    layoutSource === "copy"
+                      ? "border-indigo-600 bg-indigo-600 text-white shadow-xs"
+                      : "border-slate-200 bg-white text-slate-700 hover:bg-slate-50"
+                  }`}
+                >
+                  Copy Past Event
+                </button>
+              </div>
+
+              {layoutSource === "template" && (
+                <div className="mt-2 space-y-1">
+                  <label className="text-[11px] font-semibold text-slate-700 block">
+                    Select Organization Template:
+                  </label>
+                  {availableTemplates.length > 0 ? (
+                    <select
+                      name="templateId"
+                      value={selectedTemplateId}
+                      onChange={(e) => setSelectedTemplateId(e.target.value)}
+                      className="w-full rounded-xl border border-slate-200 bg-white p-2 text-xs font-medium text-slate-800 outline-none focus:border-indigo-600 shadow-xs"
+                    >
+                      {availableTemplates.map((t) => (
+                        <option key={t.id} value={t.id}>
+                          {t.name} ({t.booths?.length || 0} booths)
+                        </option>
+                      ))}
+                    </select>
+                  ) : (
+                    <p className="text-[11px] text-amber-700 bg-amber-50 rounded-lg p-2 border border-amber-200">
+                      No organization templates saved yet. (Save any layout as a template from the Floor Plans tab!).
+                    </p>
+                  )}
+                  <p className="text-[10px] text-slate-400">
+                    Walls, openings, and booth coordinates will be loaded. All project assignments start empty.
+                  </p>
+                </div>
+              )}
+
+              {layoutSource === "copy" && (
+                <div className="mt-2 space-y-1">
+                  <label className="text-[11px] font-semibold text-slate-700 block">
+                    Copy Layout from Event:
+                  </label>
+                  <select
+                    name="copyFromEventId"
+                    value={selectedCopyEventId}
+                    onChange={(e) => setSelectedCopyEventId(e.target.value)}
+                    className="w-full rounded-xl border border-slate-200 bg-white p-2 text-xs font-medium text-slate-800 outline-none focus:border-indigo-600 shadow-xs"
+                  >
+                    {events.map((e) => (
+                      <option key={e.id} value={e.id}>
+                        {e.name} ({e.city})
+                      </option>
+                    ))}
+                  </select>
+                  <p className="text-[10px] text-slate-400">
+                    Copies walls, openings, and booth positions, but clears all project assignments.
+                  </p>
+                </div>
+              )}
+            </div>
+
             <button
               type="submit"
               disabled={creatingEvent}
